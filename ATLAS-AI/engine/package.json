@@ -5,7 +5,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "smoke:deriv": "node --env-file=../.env.local --import tsx src/scripts/derivSmoke.ts"
+    "smoke:deriv": "node --env-file=../.env.local --import tsx src/scripts/derivSmoke.ts",
+    "backtest:tsmom": "node --import tsx src/backtest/runTsmomBacktest.ts"
   },
   "dependencies": {
     "ws": "^8.18.0"
