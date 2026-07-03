@@ -20,7 +20,16 @@ export class TradingEngine {
       return;
     }
 
-    const position = await this.broker.placeOrder(decision.order);
-    await this.audit.record({ kind: "order_placed", at, order: decision.order, positionId: position.id });
+    try {
+      const position = await this.broker.placeOrder(decision.order);
+      await this.audit.record({ kind: "order_placed", at, order: decision.order, positionId: position.id });
+    } catch (error) {
+      // 08_TRADING/09_RISK regla 5: un fallo/timeout del broker NO es una orden perdida en
+      // silencio — se audita y se propaga para que el llamador lo cuente como evento de
+      // circuit breaker (recentBrokerErrors), nunca se traga la excepción.
+      const message = error instanceof Error ? error.message : String(error);
+      await this.audit.record({ kind: "order_failed", at, order: decision.order, error: message });
+      throw error;
+    }
   }
 }
