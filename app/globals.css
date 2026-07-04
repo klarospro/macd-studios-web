@@ -11,15 +11,17 @@
   --font-sans: "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 
-  /* Atlas AI — identidad dark cinematic (aislada del tema MACD) */
-  --color-atlas-bg: #0a0e14;
-  --color-atlas-bg2: #0b1119;
-  --color-atlas-panel: #111a28;
-  --color-atlas-line: #1e2c3f;
-  --color-atlas-teal: #2dd4bf;
-  --color-atlas-blue: #38bdf8;
-  --color-atlas-ink: #e8eef6;
-  --color-atlas-muted: #8ba0b6;
+  /* Atlas — firma de inversión de lujo (cinematic, aislada del tema MACD) */
+  --color-atlas-bg: #0a0a0b;
+  --color-atlas-bg2: #0d0d10;
+  --color-atlas-night: #0b0e15;
+  --color-atlas-panel: #101116;
+  --color-atlas-line: #24242c;
+  --color-atlas-gold: #c6a76b;
+  --color-atlas-goldsoft: #e6d3a8;
+  --color-atlas-ink: #f3eee4;
+  --color-atlas-muted: #9a9488;
+  --font-atlas-display: "Fraunces", Georgia, serif;
 }
 
 @layer base {
@@ -44,15 +46,39 @@
   background-color: var(--color-atlas-bg);
   color: var(--color-atlas-ink);
   font-family: var(--font-sans);
+  font-weight: 400;
   --tw-prose: unset;
 }
-.atlas h1, .atlas h2, .atlas h3, .atlas h4 {
-  font-family: var(--font-sans);
-  letter-spacing: -0.025em;
+/* Titulares: serif display de alto contraste (Fraunces), tracking negativo. */
+.atlas h1, .atlas h2, .atlas h3 {
+  font-family: var(--font-atlas-display);
+  font-optical-sizing: auto;
+  letter-spacing: -0.018em;
   text-wrap: balance;
+  font-weight: 400;
 }
-.atlas ::selection { background: color-mix(in srgb, var(--color-atlas-teal) 35%, transparent); }
+.atlas h4 { font-family: var(--font-sans); letter-spacing: -0.01em; }
+.atlas p { line-height: 1.75; }
+.atlas ::selection { background: color-mix(in srgb, var(--color-atlas-gold) 30%, transparent); color: #0a0a0b; }
 .atlas .tnum { font-variant-numeric: tabular-nums; }
+/* Kicker editorial: mono en mayúsculas con tracking amplio. */
+.atlas .kicker {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-weight: 500;
+}
+/* Cifras financieras: mono tabular, diferenciadas del texto. */
+.atlas .fig { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+/* Acento tipográfico gigante como elemento gráfico. */
+.atlas .display-num {
+  font-family: var(--font-atlas-display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 0.86;
+  letter-spacing: -0.04em;
+}
+.atlas .italic-accent { font-style: italic; font-weight: 500; }
 .atlas .grain-fine::after {
   content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
