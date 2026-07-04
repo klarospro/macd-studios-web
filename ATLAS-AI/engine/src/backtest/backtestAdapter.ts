@@ -39,6 +39,11 @@ export class BacktestAdapter implements BrokerAdapter {
     this.open.delete(positionId);
   }
 
+  /** Aplica un coste (comisión/spread/slippage) restándolo del equity. */
+  charge(amount: number): void {
+    this.equity -= amount;
+  }
+
   async disconnect(): Promise<void> {}
 
   get openPositions(): Position[] {

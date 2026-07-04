@@ -33,6 +33,7 @@ export async function runBacktest(
   config: RiskConfig,
   params: TsmomParams,
   initialEquity: number,
+  costBps = 0,
 ): Promise<BacktestResult> {
   const adapter = new BacktestAdapter(initialEquity);
   let open: Position | null = null;
@@ -48,7 +49,10 @@ export async function runBacktest(
   const closeOpen = async (): Promise<void> => {
     if (!open) return;
     const before = await adapter.getEquity();
+    const exitPrice = adapter.currentPrice;
     await adapter.closePosition(open.id);
+    // Coste round-trip (comisión + spread + slippage) sobre el nocional de entrada y salida.
+    if (costBps > 0) adapter.charge((costBps / 10000) * open.size * (open.entryPrice + exitPrice));
     const after = await adapter.getEquity();
     if (after - before > 0) {
       wins++;
