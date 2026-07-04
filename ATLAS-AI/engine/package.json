@@ -9,7 +9,8 @@
     "backtest:tsmom": "node --import tsx src/backtest/runTsmomBacktest.ts",
     "backtest:multi": "node --import tsx src/backtest/runMultiTsmomBacktest.ts",
     "fetch:deriv": "node --env-file=../.env.local --import tsx src/scripts/fetchDerivHistory.ts",
-    "cycle:daily": "node --env-file=../.env.local --import tsx src/live/dailyCycle.ts"
+    "cycle:daily": "node --env-file=../.env.local --import tsx src/live/dailyCycle.ts",
+    "export:account": "node --env-file=../.env.local --import tsx src/scripts/exportAccountData.ts"
   },
   "dependencies": {
     "ws": "^8.18.0"

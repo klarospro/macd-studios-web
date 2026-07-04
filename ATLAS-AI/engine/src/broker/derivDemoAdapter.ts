@@ -51,6 +51,31 @@ export class DerivDemoAdapter implements BrokerAdapter {
     return this.loginId;
   }
 
+  /** Posiciones/contratos abiertos ahora mismo en la cuenta (portfolio). */
+  async openContracts(): Promise<Array<{ contractId: number; symbol: string; longcode: string; buyPrice: number }>> {
+    const response = await this.client.send({ portfolio: 1 });
+    const portfolio = response.portfolio as { contracts?: Array<Record<string, unknown>> } | undefined;
+    return (portfolio?.contracts ?? []).map((c) => ({
+      contractId: Number(c.contract_id),
+      symbol: String(c.symbol ?? ""),
+      longcode: String(c.longcode ?? ""),
+      buyPrice: Number(c.buy_price ?? 0),
+    }));
+  }
+
+  /** Últimas transacciones de la cuenta (statement) para el historial. */
+  async statement(limit: number): Promise<Array<{ action: string; amount: number; balanceAfter: number; time: number; longcode: string }>> {
+    const response = await this.client.send({ statement: 1, limit, description: 1 });
+    const statement = response.statement as { transactions?: Array<Record<string, unknown>> } | undefined;
+    return (statement?.transactions ?? []).map((t) => ({
+      action: String(t.action_type ?? ""),
+      amount: Number(t.amount ?? 0),
+      balanceAfter: Number(t.balance_after ?? 0),
+      time: Number(t.transaction_time ?? 0),
+      longcode: String(t.longcode ?? ""),
+    }));
+  }
+
   /** Cierres diarios recientes de un símbolo (ticks_history, público). Para señales en vivo. */
   async dailyCloses(symbol: string, count: number): Promise<number[]> {
     const response = await this.client.send({

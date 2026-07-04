@@ -1,0 +1,183 @@
+{
+  "generatedAt": "2026-07-04T09:00:13.108Z",
+  "accountId": "VRTC4942159",
+  "balance": 8990.72,
+  "open": [],
+  "statement": [
+    {
+      "action": "sell",
+      "amount": 0.6,
+      "balanceAfter": 8990.72,
+      "time": 1783101159,
+      "longcode": "If you select 'Up', your total profit/loss will be the percentage increase in Volatility 100 Index, multiplied by 100, minus commissions."
+    },
+    {
+      "action": "sell",
+      "amount": 0.96,
+      "balanceAfter": 8990.12,
+      "time": 1783100103,
+      "longcode": "If you select 'Up', your total profit/loss will be the percentage increase in Volatility 100 Index, multiplied by 100, minus commissions."
+    },
+    {
+      "action": "buy",
+      "amount": -1,
+      "balanceAfter": 8989.16,
+      "time": 1783100100,
+      "longcode": "If you select 'Up', your total profit/loss will be the percentage increase in Volatility 100 Index, multiplied by 100, minus commissions."
+    },
+    {
+      "action": "buy",
+      "amount": -1,
+      "balanceAfter": 8990.16,
+      "time": 1783099958,
+      "longcode": "If you select 'Up', your total profit/loss will be the percentage increase in Volatility 100 Index, multiplied by 100, minus commissions."
+    },
+    {
+      "action": "sell",
+      "amount": 0,
+      "balanceAfter": 8991.16,
+      "time": 1671113353,
+      "longcode": "If you select 'Down', your total profit/loss will be the percentage decrease in EUR/USD, multiplied by 750, minus commissions."
+    },
+    {
+      "action": "buy",
+      "amount": -15,
+      "balanceAfter": 8991.16,
+      "time": 1669911366,
+      "longcode": "If you select 'Down', your total profit/loss will be the percentage decrease in EUR/USD, multiplied by 750, minus commissions."
+    },
+    {
+      "action": "sell",
+      "amount": 12.35,
+      "balanceAfter": 9006.16,
+      "time": 1669911216,
+      "longcode": "Win payout if the last digit of Volatility 10 (1s) Index is strictly lower than 8 after 10 ticks."
+    },
+    {
+      "action": "buy",
+      "amount": -10,
+      "balanceAfter": 8993.81,
+      "time": 1669911205,
+      "longcode": "Win payout if the last digit of Volatility 10 (1s) Index is strictly lower than 8 after 10 ticks."
+    },
+    {
+      "action": "sell",
+      "amount": 720.72,
+      "balanceAfter": 9003.81,
+      "time": 1663556845,
+      "longcode": "If you select 'Down', your total profit/loss will be the percentage decrease in Crash 1000 Index, multiplied by 200000, minus commissions."
+    },
+    {
+      "action": "buy",
+      "amount": -500,
+      "balanceAfter": 8283.09,
+      "time": 1663556461,
+      "longcode": "If you select 'Down', your total profit/loss will be the percentage decrease in Crash 1000 Index, multiplied by 200000, minus commissions."
+    },
+    {
+      "action": "sell",
+      "amount": 145.72,
+      "balanceAfter": 8783.09,
+      "time": 1661783337,
+      "longcode": "If you select 'Up', your total profit/loss will be the percentage increase in Boom 1000 Index, multiplied by 80000, minus commissions."
+    },
+    {
+      "action": "sell",
+      "amount": 145.68,
+      "balanceAfter": 8637.37,
+      "time": 1661783332,
+      "longcode": "If you select 'Up', your total profit/loss will be the percentage increase in Boom 1000 Index, multiplied by 80000, minus commissions."
+    },
+    {
+      "action": "sell",
+      "amount": 120.72,
+      "balanceAfter": 8491.69,
+      "time": 1661783326,
+      "longcode": "If you select 'Up', your total profit/loss will be the percentage increase in Boom 1000 Index, multiplied by 80000, minus commissions."
+    },
+    {
+      "action": "sell",
+      "amount": 1054.8,
+      "balanceAfter": 8370.97,
+      "time": 1661783312,
+      "longcode": "If you select 'Up', your total profit/loss will be the percentage increase in Boom 1000 Index, multiplied by 800000, minus commissions."
+    },
+    {
+      "action": "sell",
+      "amount": 249.75,
+      "balanceAfter": 7316.17,
+      "time": 1661783276,
+      "longcode": "If you select 'Up', your total profit/loss will be the percentage increase in Boom 1000 Index, multiplied by 200000, minus commissions."
+    },
+    {
+      "action": "buy",
+      "amount": -200,
+      "balanceAfter": 7066.42,
+      "time": 1661782682,
+      "longcode": "If you select 'Up', your total profit/loss will be the percentage increase in Boom 1000 Index, multiplied by 80000, minus commissions."
+    },
+    {
+      "action": "buy",
+      "amount": -200,
+      "balanceAfter": 7266.42,
+      "time": 1661782675,
+      "longcode": "If you select 'Up', your total profit/loss will be the percentage increase in Boom 1000 Index, multiplied by 80000, minus commissions."
+    },
+    {
+      "action": "buy",
+      "amount": -200,
+      "balanceAfter": 7466.42,
+      "time": 1661782355,
+      "longcode": "If you select 'Up', your total profit/loss will be the percentage increase in Boom 1000 Index, multiplied by 80000, minus commissions."
+    },
+    {
+      "action": "buy",
+      "amount": -2000,
+      "balanceAfter": 7666.42,
+      "time": 1661782150,
+      "longcode": "If you select 'Up', your total profit/loss will be the percentage increase in Boom 1000 Index, multiplied by 800000, minus commissions."
+    },
+    {
+      "action": "buy",
+      "amount": -500,
+      "balanceAfter": 9666.42,
+      "time": 1661782049,
+      "longcode": "If you select 'Up', your total profit/loss will be the percentage increase in Boom 1000 Index, multiplied by 200000, minus commissions."
+    },
+    {
+      "action": "sell",
+      "amount": 96.14,
+      "balanceAfter": 10166.42,
+      "time": 1659395534,
+      "longcode": "If you select 'Down', your total profit/loss will be the percentage decrease in Volatility 75 Index, multiplied by 5000, minus commissions."
+    },
+    {
+      "action": "buy",
+      "amount": -100,
+      "balanceAfter": 10070.28,
+      "time": 1659395499,
+      "longcode": "If you select 'Down', your total profit/loss will be the percentage decrease in Volatility 75 Index, multiplied by 5000, minus commissions."
+    },
+    {
+      "action": "sell",
+      "amount": 195.33,
+      "balanceAfter": 10170.28,
+      "time": 1659395480,
+      "longcode": "Win payout if Volatility 75 Index after 1 tick is strictly higher than entry spot."
+    },
+    {
+      "action": "buy",
+      "amount": -100,
+      "balanceAfter": 9974.95,
+      "time": 1659395476,
+      "longcode": "Win payout if Volatility 75 Index after 1 tick is strictly higher than entry spot."
+    },
+    {
+      "action": "sell",
+      "amount": 195.33,
+      "balanceAfter": 10074.95,
+      "time": 1659395469,
+      "longcode": "Win payout if Volatility 75 Index after 1 tick is strictly higher than entry spot."
+    }
+  ]
+}
