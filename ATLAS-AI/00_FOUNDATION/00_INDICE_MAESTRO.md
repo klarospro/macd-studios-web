@@ -12,15 +12,15 @@ Cárgalo primero. No abras carpetas enteras sin necesidad — solo el `00_RESUME
 | 05 | SKILLS | ✅ Fase 2 hecha | 00_RESUMEN.md, 01_DETALLE_SKILLS.md |
 | 06 | HOOKS | ✅ Fase 2 hecha | 00_RESUMEN.md, 01_DETALLE_HOOKS.md |
 | 07 | AGENTS | ✅ Fase 2 hecha | 00_RESUMEN.md, 01_DETALLE_SUBAGENTES.md |
-| 08 | TRADING | 🟡 Fase 3 (esqueleto construido + tests OK; adaptador Deriv live pendiente) | 00_RESUMEN.md, 01_DETALLE_ADAPTADOR_Y_CICLO_DE_VIDA.md, /engine |
+| 08 | TRADING | ✅ Fase 3 (adaptador Deriv demo live validado end-to-end; runner diario en vivo + auditoría WORM; 15 tests) | 00_RESUMEN.md, 01_DETALLE_ADAPTADOR_Y_CICLO_DE_VIDA.md, /engine |
 | 09 | RISK | ✅ Fase 3 (defaults aprobados 2026-07-02, ajustables) | 00_RESUMEN.md, 01_DETALLE_FORMULAS_Y_PARAMETROS.md |
 | 10 | POLYMARKET | 🟡 Fase 3 (investigación hecha 2026-07-03; BLOQUEANTE: confirmar jurisdicción antes de fondear; no hay testnet — plan paper interno pendiente de aprobación) | 00_RESUMEN.md, 01_DETALLE_API_Y_ESTRATEGIA.md |
 | 11 | MT5 | ✅ Fase 3 (API Deriv investigada; usar Native API, no MT5) | 00_RESUMEN.md, 01_DETALLE_API_DERIV.md |
 | 12 | EXCHANGES | ⬜ Fase 3 | — |
-| 13 | BACKTESTING | 🟡 Fase 3 (catálogo de estrategias de fondos investigado 2026-07-03; recomendación: TSMOM 1º en demo. Pendiente: metodología/framework de backtesting y ejecución. ⚠️ revisar breaker de 4 pérdidas vs trend following) | 00_RESUMEN.md, 01_ESTRATEGIAS_FONDOS_REPLICABLES.md |
-| 14 | PORTFOLIOS | 🟡 Fase 4 (diseño de capa de portafolio propuesto; decisiones tomadas 2026-07-03, código pendiente) | 00_RESUMEN.md, 01_DETALLE_CAPA_PORTAFOLIO.md |
-| 15 | DASHBOARD | ⬜ Fase 4 | — |
-| 16 | AUTOMATION | ⬜ Fase 5 | — |
+| 13 | BACKTESTING | ✅ Fase 3 (harness construido: HistoricalReplayAdapter reutiliza el motor; TSMOM sobre datos reales BTC + 5 instrumentos Deriv. Breaker resuelto: config por-venue) | 00_RESUMEN.md, 01_ESTRATEGIAS_FONDOS_REPLICABLES.md, /engine/src/backtest |
+| 14 | PORTFOLIOS | ✅ Fase 4 (PortfolioManager construido + tests: gate global 4%; decisiones tomadas 2026-07-03) | 00_RESUMEN.md, 01_DETALLE_CAPA_PORTAFOLIO.md, /engine/src/portfolio |
+| 15 | DASHBOARD | 🟡 Fase 4 (v1 generado: estado + backtest, HTML self-contained. Pendiente: leer de Supabase en vivo + integrar en Next.js) | /engine/dashboard/template.html |
+| 16 | AUTOMATION | 🟡 Fase 5 (runner diario en vivo construido `cycle:daily`; pendiente: cron en VPS Hetzner + Supabase) | /engine/src/live |
 | 17 | SAAS | ⬜ Fase 5 | — |
 | 18 | SECURITY | ✅ Fase 1 hecha | 00_RESUMEN.md, 01_DETALLE_MODELO_SEGURIDAD_MULTITENANT.md |
 | 19 | INFRASTRUCTURE | ✅ Fase 1 hecha | 00_RESUMEN.md, 01_DETALLE_SUPABASE_SCHEMA_VS_PROYECTO.md |
@@ -39,5 +39,12 @@ Leyenda: ✅ hecho · 🟡 parcial · ⬜ sin empezar
 ## Pendiente de decisión (detectado 2026-07-03, Backtesting/estrategias)
 - **Circuit breaker de 4 pérdidas consecutivas (09_RISK regla 5) vs trend following**: con win rate ~30-45% (por diseño de la estrategia), rachas de 4 pérdidas son estadísticamente frecuentes → el breaker parará el sistema a menudo. Decidir con Moisés: subir el umbral para esa estrategia, o aceptar los parones. Ver `13_BACKTESTING/01_ESTRATEGIAS_FONDOS_REPLICABLES.md` ficha 1.
 - **Swaps/costes reales de Deriv por instrumento**: sin confirmar — determinan la viabilidad del carry FX (ficha 3) y afectan al backtest de todas las estrategias. Verificar contra docs oficiales de Deriv antes de backtestear.
+
+## Sesión autónoma 2026-07-04 — construido + decisiones tomadas
+- **Construido**: PortfolioManager (gate global 4%), estrategia TSMOM + harness de backtest (HistoricalReplayAdapter) sobre datos reales, runner diario en vivo (`cycle:daily`), auditoría WORM (fichero + Supabase env-gated), dashboard v1. 15/15 tests.
+- **Resultados backtest (datos reales, ~1-2 años, sin costes)**: BTC 2a config TSMOM +9.6% (DD 8.2%); cartera 5 activos +3.8%, 3/5 positivos; EURUSD cortado por breaker de drawdown (red de seguridad OK).
+- **Decisión tomada**: breaker de pérdidas consecutivas → configurable por venue (`Venue.config`); TSMOM usa umbral relajado (12). Justificado empíricamente (con 4 el sistema se paró a mitad del backtest).
+- **Jurisdicción Polymarket**: España → viable; paper primero.
+- **Pendiente para Moisés**: (1) credenciales Supabase + correr `engine/db/001_trading_audit_log.sql`; (2) desplegar runner en VPS Hetzner con cron diario para el mes de demo; (3) confirmar swaps/costes reales de Deriv antes de fiarse de los backtests.
 
 Ver `ROADMAP_FASES.md` (raíz) para el orden de ejecución y `CLAUDE.md` (raíz) para las reglas.
