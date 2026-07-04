@@ -26,6 +26,8 @@ export class DerivClient {
         this.keepAlive = setInterval(() => {
           if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ ping: 1 }));
         }, 30000);
+        // unref: el heartbeat no debe impedir que el proceso termine si el trabajo ya acabó.
+        this.keepAlive.unref?.();
         resolve();
       });
       socket.on("message", (data) => this.onMessage(data.toString()));

@@ -1,0 +1,336 @@
+<style>
+  :root {
+    --ground: #0E1319;
+    --panel: #151D28;
+    --panel2: #1B2531;
+    --hair: #29343f;
+    --ink: #EAEEF4;
+    --muted: #8A97A8;
+    --faint: #56636f;
+    --accent: #D2A05A;
+    --tuned: #B58234;
+    --default: #4E97DE;
+    --pos: #57B98A;
+    --neg: #DF6E61;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .wrap {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+    min-height: 100vh;
+    padding: clamp(20px, 4vw, 56px);
+  }
+  .shell { max-width: 1080px; margin: 0 auto; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 14px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .pill {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+    padding: 3px 9px; border-radius: 999px; border: 1px solid var(--hair);
+    color: var(--muted); text-transform: none;
+  }
+  .pill.demo { color: var(--pos); border-color: color-mix(in srgb, var(--pos) 40%, var(--hair)); }
+  h1 {
+    font-size: clamp(30px, 5vw, 46px); line-height: 1.04; margin: 0 0 12px;
+    font-weight: 620; letter-spacing: -0.02em; text-wrap: balance;
+  }
+  .lede { color: var(--muted); font-size: 17px; max-width: 62ch; margin: 0 0 34px; }
+  .lede strong { color: var(--ink); font-weight: 600; }
+
+  .grid { display: grid; gap: 14px; }
+  .kpis { grid-template-columns: repeat(4, 1fr); margin-bottom: 40px; }
+  @media (max-width: 720px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+  .tile {
+    background: linear-gradient(180deg, var(--panel2), var(--panel));
+    border: 1px solid var(--hair); border-radius: 14px; padding: 18px 18px 16px;
+  }
+  .tile .label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; color: var(--muted); text-transform: uppercase; }
+  .tile .num { font-size: 30px; font-weight: 640; letter-spacing: -0.02em; margin-top: 8px; font-variant-numeric: tabular-nums; }
+  .tile .sub { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+  .num.pos { color: var(--pos); } .num.neg { color: var(--neg); } .num.gold { color: var(--accent); }
+
+  section { margin-bottom: 40px; }
+  .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+  h2 { font-size: 13px; font-family: var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink); margin: 0; font-weight: 600; }
+  .sec-note { font-size: 13px; color: var(--muted); }
+
+  .card { background: var(--panel); border: 1px solid var(--hair); border-radius: 16px; padding: 20px; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+  .chart-host { width: 100%; overflow-x: auto; }
+  svg { display: block; width: 100%; height: auto; }
+  .tick { fill: var(--faint); font-size: 11px; font-family: var(--mono); }
+  .axis-line { stroke: var(--hair); }
+  .grid-line { stroke: color-mix(in srgb, var(--hair) 55%, transparent); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: right; font-family: var(--mono); font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); font-weight: 500; padding: 0 10px 10px; border-bottom: 1px solid var(--hair); }
+  th:first-child, td:first-child { text-align: left; }
+  td { padding: 11px 10px; border-bottom: 1px solid color-mix(in srgb, var(--hair) 50%, transparent); font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: none; }
+  .inst { font-weight: 600; }
+  .retcell { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+  .retbar { height: 7px; border-radius: 4px; min-width: 2px; }
+  .halt-tag { font-family: var(--mono); font-size: 10px; color: var(--neg); border: 1px solid color-mix(in srgb, var(--neg) 45%, var(--hair)); border-radius: 5px; padding: 1px 5px; margin-left: 8px; }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+  .layer { display: flex; align-items: flex-start; gap: 12px; padding: 11px 0; border-bottom: 1px solid color-mix(in srgb, var(--hair) 50%, transparent); }
+  .layer:last-child { border-bottom: none; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; flex: none; }
+  .dot.done { background: var(--pos); box-shadow: 0 0 0 3px color-mix(in srgb, var(--pos) 18%, transparent); }
+  .dot.wip { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+  .dot.todo { background: var(--faint); }
+  .layer .lt { font-weight: 600; font-size: 14px; }
+  .layer .ld { font-size: 12.5px; color: var(--muted); }
+  .risk-row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid color-mix(in srgb, var(--hair) 50%, transparent); font-size: 13.5px; }
+  .risk-row:last-child { border-bottom: none; }
+  .risk-row .rv { font-family: var(--mono); color: var(--accent); font-variant-numeric: tabular-nums; }
+  .risk-row .rk { color: var(--muted); }
+
+  .roadmap { display: flex; gap: 10px; flex-wrap: wrap; }
+  .step { flex: 1 1 150px; background: var(--panel); border: 1px solid var(--hair); border-radius: 12px; padding: 14px; }
+  .step .n { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+  .step .t { font-weight: 600; font-size: 14px; margin: 4px 0 3px; }
+  .step .d { font-size: 12px; color: var(--muted); }
+  .step.now { border-color: color-mix(in srgb, var(--accent) 45%, var(--hair)); }
+  .step.now .n { color: var(--accent); }
+
+  footer { margin-top: 8px; padding-top: 20px; border-top: 1px solid var(--hair); font-size: 12.5px; color: var(--faint); }
+  footer strong { color: var(--muted); }
+
+  .tt { position: fixed; pointer-events: none; background: var(--panel2); border: 1px solid var(--hair); border-radius: 9px; padding: 8px 11px; font-size: 12px; font-family: var(--mono); color: var(--ink); opacity: 0; transition: opacity .12s; z-index: 9; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+  .tt .rowt { display: flex; justify-content: space-between; gap: 14px; }
+  .tt b { font-weight: 600; }
+</style>
+
+<div class="wrap">
+  <div class="shell">
+    <p class="eyebrow">
+      ATLAS AI · Motor de trading
+      <span class="pill demo">● Modo demo / paper</span>
+      <span class="pill" id="gen">generado —</span>
+    </p>
+    <h1>Estado del sistema y backtest sobre mercado real</h1>
+    <p class="lede">
+      El cerebro agnóstico de broker está construido y probado. Estas son las decisiones que el
+      motor toma <strong>con datos de mercado reales</strong>, filtradas por la gestión de riesgo.
+      Cifras honestas: backtest simplificado, sin comisiones, muestra corta — <strong>prometedor y
+      seguro, no una promesa de rentabilidad.</strong>
+    </p>
+
+    <div class="grid kpis" id="kpis"></div>
+
+    <section>
+      <div class="sec-head">
+        <h2>Curva de equity · BTC/USD · 2 años de cierres diarios reales</h2>
+        <span class="sec-note">$10.000 inicial · riesgo 1%/operación</span>
+      </div>
+      <div class="card">
+        <div class="legend">
+          <span><i class="swatch" style="background:var(--tuned)"></i>Config TSMOM (breaker relajado)</span>
+          <span><i class="swatch" style="background:var(--default)"></i>Config por defecto (breaker 4 pérdidas)</span>
+        </div>
+        <div class="chart-host" id="equityChart"></div>
+        <p class="sec-note" style="margin:12px 0 0">
+          El breaker de 4 pérdidas consecutivas <strong style="color:var(--neg)">paró el sistema a mitad del periodo</strong>
+          — con trend following (acierta ~30%) las rachas de pérdidas son normales por diseño. Por eso el breaker
+          se hizo configurable por venue.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <div class="sec-head">
+        <h2>TSMOM diversificado · 5 instrumentos · datos reales de Deriv</h2>
+        <span class="sec-note" id="portNote">—</span>
+      </div>
+      <div class="card">
+        <div class="chart-host">
+          <table>
+            <thead>
+              <tr><th>Instrumento</th><th>Barras</th><th>Ops</th><th>Acierto</th><th>Máx DD</th><th>Retorno</th><th>Equity</th></tr>
+            </thead>
+            <tbody id="instRows"></tbody>
+          </table>
+        </div>
+        <p class="sec-note" style="margin:14px 0 0">
+          El <strong style="color:var(--accent)">Oro</strong> tiró de la cartera; <strong style="color:var(--neg)">EURUSD</strong>
+          sangró en un mercado lateral hasta que el <strong>breaker de drawdown lo cortó solo</strong>. La cartera diversificada
+          terminó en positivo con menos caída que el peor activo — el argumento de diversificar, medido.
+        </p>
+      </div>
+    </section>
+
+    <div class="two">
+      <section style="margin-bottom:0">
+        <div class="sec-head"><h2>Arquitectura construida</h2></div>
+        <div class="card">
+          <div class="layer"><span class="dot done"></span><div><div class="lt">Risk gate + sizing + circuit breakers</div><div class="ld">Kelly fraccionado, drawdown, exposición agregada · 15/15 tests</div></div></div>
+          <div class="layer"><span class="dot done"></span><div><div class="lt">Adaptador Deriv demo (WebSocket)</div><div class="ld">connect/authorize, balance, order, close · validado end-to-end</div></div></div>
+          <div class="layer"><span class="dot done"></span><div><div class="lt">PortfolioManager multi-venue</div><div class="ld">gate global de riesgo agregado sobre el capital total</div></div></div>
+          <div class="layer"><span class="dot done"></span><div><div class="lt">Estrategia TSMOM + backtest</div><div class="ld">sobre datos reales de BTC + índices/oro/forex</div></div></div>
+          <div class="layer"><span class="dot done"></span><div><div class="lt">Ciclo diario en vivo + auditoría WORM</div><div class="ld">decisiones con mercado real · log append-only</div></div></div>
+          <div class="layer"><span class="dot wip"></span><div><div class="lt">Persistencia Supabase + dashboard</div><div class="ld">esquema listo; falta conectar credenciales y desplegar</div></div></div>
+          <div class="layer"><span class="dot todo"></span><div><div class="lt">Adaptadores Polymarket / MT5 / fondeo</div><div class="ld">Polymarket: España OK, paper primero · MT5: infra Windows</div></div></div>
+        </div>
+      </section>
+
+      <section style="margin-bottom:0">
+        <div class="sec-head"><h2>Gestión de riesgo</h2></div>
+        <div class="card">
+          <div class="risk-row"><span class="rk">Riesgo por operación</span><span class="rv">1%</span></div>
+          <div class="risk-row"><span class="rk">Kelly fraccionado</span><span class="rv">1/4</span></div>
+          <div class="risk-row"><span class="rk">Drawdown diario → sin nuevas órdenes</span><span class="rv">3%</span></div>
+          <div class="risk-row"><span class="rk">Drawdown total → HALT + revisión</span><span class="rv">10%</span></div>
+          <div class="risk-row"><span class="rk">Riesgo agregado por cuenta</span><span class="rv">5%</span></div>
+          <div class="risk-row"><span class="rk">Techo de riesgo global (portafolio)</span><span class="rv">4%</span></div>
+          <div class="risk-row"><span class="rk">Posiciones concurrentes máx.</span><span class="rv">3</span></div>
+          <div class="risk-row"><span class="rk">Circuit breaker: pérdidas seguidas</span><span class="rv">config/venue</span></div>
+        </div>
+      </section>
+    </div>
+
+    <section style="margin-top:40px">
+      <div class="sec-head"><h2>Hoja de ruta hacia el demo en vivo</h2></div>
+      <div class="roadmap">
+        <div class="step"><div class="n">HECHO</div><div class="t">Motor + riesgo</div><div class="d">núcleo agnóstico de broker, probado</div></div>
+        <div class="step"><div class="n">HECHO</div><div class="t">Backtest real</div><div class="d">TSMOM multi-instrumento sobre datos reales</div></div>
+        <div class="step now"><div class="n">AHORA</div><div class="t">Demo 1 mes</div><div class="d">runner + Supabase en el VPS, Deriv demo</div></div>
+        <div class="step"><div class="n">DESPUÉS</div><div class="t">Validar ≥60%</div><div class="d">gate antes de dinero real</div></div>
+        <div class="step"><div class="n">DESPUÉS</div><div class="t">Clientes</div><div class="d">plantillas para inversores</div></div>
+      </div>
+    </section>
+
+    <footer>
+      <strong>Aviso honesto:</strong> backtest simplificado (solo cierres, sin comisiones/swaps/slippage, ~1 año en
+      índices/forex). Los resultados pasados no garantizan los futuros. Todo en cuenta demo con dinero virtual.
+      No es asesoramiento de inversión. · MACD Studios · Atlas AI
+    </footer>
+  </div>
+</div>
+
+<div class="tt" id="tt"></div>
+
+<script type="module">
+  const DATA = __DATA__;
+
+  const fmt = (n, d = 1) => (n >= 0 ? "+" : "") + n.toFixed(d);
+  document.getElementById("gen").textContent = "generado " + new Date(DATA.generatedAt).toISOString().slice(0, 10);
+
+  // ---- KPI tiles ----
+  const p = DATA.portfolio;
+  const kpis = [
+    { label: "Tests del motor", num: "15/15", cls: "pos", sub: "typecheck + suite en verde" },
+    { label: "Cartera · 5 activos", num: fmt(p.avgReturn) + "%", cls: p.avgReturn >= 0 ? "pos" : "neg", sub: p.winners + "/" + p.total + " en positivo · DD " + p.avgDd.toFixed(1) + "%" },
+    { label: "BTC · 2 años (TSMOM)", num: fmt(DATA.btc.tuned.returnPct) + "%", cls: "gold", sub: "DD " + DATA.btc.tuned.maxDd.toFixed(1) + "% · " + DATA.btc.tuned.trades + " ops" },
+    { label: "Capa maestra", num: "✓", cls: "pos", sub: "PortfolioManager · gate global 4%" },
+  ];
+  document.getElementById("kpis").innerHTML = kpis.map((k) =>
+    `<div class="tile"><div class="label">${k.label}</div><div class="num ${k.cls}">${k.num}</div><div class="sub">${k.sub}</div></div>`
+  ).join("");
+  document.getElementById("portNote").textContent = "retorno medio " + fmt(p.avgReturn) + "% · DD medio " + p.avgDd.toFixed(1) + "%";
+
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const el = (n, a = {}) => { const e = document.createElementNS(SVGNS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  const tt = document.getElementById("tt");
+
+  // ---- Main equity line chart ----
+  function lineChart(host, seriesList, opts = {}) {
+    const W = 1000, H = 340, m = { t: 16, r: 54, b: 28, l: 16 };
+    const iw = W - m.l - m.r, ih = H - m.t - m.b;
+    const all = seriesList.flatMap((s) => s.values);
+    const lo = Math.min(...all), hi = Math.max(...all);
+    const pad = (hi - lo) * 0.12 || 1;
+    const yMin = lo - pad, yMax = hi + pad;
+    const maxLen = Math.max(...seriesList.map((s) => s.values.length));
+    const x = (i) => m.l + (i / (maxLen - 1)) * iw;
+    const y = (v) => m.t + (1 - (v - yMin) / (yMax - yMin)) * ih;
+
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": opts.aria || "curva de equity" });
+
+    // baseline (initial equity) + gridlines
+    const gridVals = [yMin, (yMin + yMax) / 2, yMax];
+    for (let g = 0; g <= 4; g++) {
+      const v = yMin + (g / 4) * (yMax - yMin);
+      svg.appendChild(el("line", { class: "grid-line", x1: m.l, x2: m.l + iw, y1: y(v), y2: y(v) }));
+      const t = el("text", { class: "tick", x: m.l + iw + 8, y: y(v) + 4 }); t.textContent = "$" + Math.round(v / 100) * 100; svg.appendChild(t);
+    }
+    if (opts.base) { const yb = y(opts.base); svg.appendChild(el("line", { class: "axis-line", x1: m.l, x2: m.l + iw, y1: yb, y2: yb, "stroke-dasharray": "3 4" })); }
+
+    for (const s of seriesList) {
+      const pts = s.values.map((v, i) => `${x(i)},${y(v)}`).join(" ");
+      if (s.fill) {
+        const area = `${m.l},${y(yMin)} ` + s.values.map((v, i) => `${x(i)},${y(v)}`).join(" ") + ` ${x(s.values.length - 1)},${y(yMin)}`;
+        const poly = el("polygon", { points: area, fill: s.color, opacity: 0.10 }); svg.appendChild(poly);
+      }
+      svg.appendChild(el("polyline", { points: pts, fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+      // endpoint dot + label
+      const li = s.values.length - 1;
+      svg.appendChild(el("circle", { cx: x(li), cy: y(s.values[li]), r: 4, fill: s.color, stroke: "var(--panel)", "stroke-width": 2 }));
+      if (s.haltAt != null) {
+        svg.appendChild(el("circle", { cx: x(s.haltAt), cy: y(s.values[Math.min(s.haltAt, li)]), r: 4.5, fill: "none", stroke: "var(--neg)", "stroke-width": 2 }));
+      }
+    }
+
+    // hover crosshair
+    const cross = el("line", { class: "axis-line", y1: m.t, y2: m.t + ih, opacity: 0 });
+    svg.appendChild(cross);
+    const rect = el("rect", { x: m.l, y: m.t, width: iw, height: ih, fill: "transparent" });
+    svg.appendChild(rect);
+    rect.addEventListener("pointermove", (ev) => {
+      const bb = svg.getBoundingClientRect();
+      const px = (ev.clientX - bb.left) / bb.width * W;
+      let i = Math.round((px - m.l) / iw * (maxLen - 1));
+      i = Math.max(0, Math.min(maxLen - 1, i));
+      cross.setAttribute("x1", x(i)); cross.setAttribute("x2", x(i)); cross.setAttribute("opacity", 0.5);
+      const rows = seriesList.map((s) => `<div class="rowt"><span style="color:${s.color}">${s.name}</span><b>$${Math.round(s.values[Math.min(i, s.values.length - 1)]).toLocaleString()}</b></div>`).join("");
+      tt.innerHTML = rows; tt.style.opacity = 1;
+      tt.style.left = Math.min(ev.clientX + 14, window.innerWidth - 180) + "px";
+      tt.style.top = (ev.clientY - 10) + "px";
+    });
+    rect.addEventListener("pointerleave", () => { tt.style.opacity = 0; cross.setAttribute("opacity", 0); });
+    host.appendChild(svg);
+  }
+
+  lineChart(document.getElementById("equityChart"), [
+    { name: "TSMOM", color: "#B58234", values: DATA.btc.tuned.curve, fill: true },
+    { name: "Por defecto", color: "#4E97DE", values: DATA.btc.default.curve, haltAt: Math.round((DATA.btc.default.haltedAt / 731) * DATA.btc.default.curve.length) },
+  ], { base: 10000, aria: "Equity de BTC con dos configuraciones de riesgo" });
+
+  // ---- Sparkline ----
+  function spark(values, color) {
+    const W = 120, H = 30, lo = Math.min(...values), hi = Math.max(...values), r = hi - lo || 1;
+    const x = (i) => (i / (values.length - 1)) * (W - 2) + 1;
+    const y = (v) => H - 2 - ((v - lo) / r) * (H - 4);
+    const pts = values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+    const up = values[values.length - 1] >= values[0];
+    return `<svg viewBox="0 0 ${W} ${H}" style="width:120px;height:30px" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6"/><circle cx="${x(values.length - 1).toFixed(1)}" cy="${y(values[values.length - 1]).toFixed(1)}" r="2.4" fill="${color}"/></svg>`;
+  }
+
+  // ---- Instrument rows ----
+  const maxAbs = Math.max(...DATA.instruments.map((d) => Math.abs(d.returnPct)));
+  document.getElementById("instRows").innerHTML = DATA.instruments.map((d) => {
+    const pos = d.returnPct >= 0; const col = pos ? "var(--pos)" : "var(--neg)";
+    const w = (Math.abs(d.returnPct) / maxAbs) * 90 + 4;
+    return `<tr>
+      <td class="inst">${d.name}${d.halted ? '<span class="halt-tag">HALT</span>' : ""}</td>
+      <td>${d.bars}</td>
+      <td>${d.trades}</td>
+      <td>${d.winRate.toFixed(0)}%</td>
+      <td>${d.maxDrawdownPct.toFixed(1)}%</td>
+      <td><div class="retcell"><span style="color:${col};font-weight:600">${fmt(d.returnPct)}%</span><span class="retbar" style="width:${w}px;background:${col}"></span></div></td>
+      <td style="text-align:right">${spark(DATA.curves[d.name], pos ? "#57B98A" : "#DF6E61")}</td>
+    </tr>`;
+  }).join("");
+</script>

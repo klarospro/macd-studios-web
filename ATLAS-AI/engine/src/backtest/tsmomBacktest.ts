@@ -13,6 +13,7 @@ export interface BacktestResult {
   maxDrawdownPct: number;
   haltedAt: number | null;
   haltReason: string | null;
+  equityCurve: number[];
 }
 
 function px(prices: number[], i: number): number {
@@ -42,6 +43,7 @@ export async function runBacktest(
   let wins = 0;
   let haltedAt: number | null = null;
   let haltReason: string | null = null;
+  const equityCurve: number[] = [];
 
   const closeOpen = async (): Promise<void> => {
     if (!open) return;
@@ -70,6 +72,7 @@ export async function runBacktest(
     const equity = await adapter.getEquity();
     peakEquity = Math.max(peakEquity, equity);
     maxDrawdownPct = Math.max(maxDrawdownPct, (peakEquity - equity) / peakEquity);
+    equityCurve.push(equity);
 
     if (!open) {
       const signal = tsmomSignal(prices, i, params);
@@ -104,6 +107,7 @@ export async function runBacktest(
     maxDrawdownPct,
     haltedAt,
     haltReason,
+    equityCurve,
   };
 }
 

@@ -51,6 +51,19 @@ export class DerivDemoAdapter implements BrokerAdapter {
     return this.loginId;
   }
 
+  /** Cierres diarios recientes de un símbolo (ticks_history, público). Para señales en vivo. */
+  async dailyCloses(symbol: string, count: number): Promise<number[]> {
+    const response = await this.client.send({
+      ticks_history: symbol,
+      end: "latest",
+      count,
+      style: "candles",
+      granularity: 86400,
+    });
+    const candles = (response.candles as Array<{ close?: number }> | undefined) ?? [];
+    return candles.map((c) => c.close).filter((c): c is number => typeof c === "number");
+  }
+
   async getEquity(): Promise<number> {
     const response = await this.client.send({ balance: 1, account: "current" });
     const balance = response.balance as { balance?: number } | undefined;
