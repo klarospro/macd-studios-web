@@ -30,3 +30,23 @@ export function appendEquity(path: string, equity: number): void {
   mkdirSync(dirname(path), { recursive: true });
   appendFileSync(path, `${JSON.stringify({ at: new Date().toISOString(), equity })}\n`);
 }
+
+/**
+ * Meta de cartera persistida entre corridas: sin esto el runner no puede aplicar los
+ * breakers de drawdown (necesita recordar el pico de equity y el equity de inicio de día).
+ */
+export interface PortfolioMeta {
+  peakEquity: number;
+  startOfDayEquity: number;
+  startOfDayDate: string; // YYYY-MM-DD (UTC)
+}
+
+export function loadMeta(path: string): PortfolioMeta | null {
+  if (!existsSync(path)) return null;
+  return JSON.parse(readFileSync(path, "utf8")) as PortfolioMeta;
+}
+
+export function saveMeta(path: string, meta: PortfolioMeta): void {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, JSON.stringify(meta, null, 2));
+}

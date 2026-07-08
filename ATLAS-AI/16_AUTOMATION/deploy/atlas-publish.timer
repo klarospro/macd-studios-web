@@ -1,0 +1,17 @@
+# OPCIONAL — dispara el publicador ligero cada 5 minutos mientras haya mercado.
+# Solo refresca el dashboard; no opera. Instálalo únicamente si quieres equity/P&L
+# "en vivo" entre los ciclos diarios.
+#
+# Instalar en: /etc/systemd/system/atlas-publish.timer
+# Activar con:  systemctl enable --now atlas-publish.timer
+
+[Unit]
+Description=Atlas AI - timer del publicador ligero (cada 5 min)
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Unit=atlas-publish.service
+
+[Install]
+WantedBy=timers.target

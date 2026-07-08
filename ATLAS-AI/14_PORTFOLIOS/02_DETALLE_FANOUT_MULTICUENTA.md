@@ -1,0 +1,44 @@
+# Detalle — Modelo de operador único y fan-out a N cuentas propias por venue
+
+Estado: diseño propuesto (investigación 2026-07-07), pendiente aprobación de Moisés antes de construir. Complementa `00_RESUMEN.md` y `01_DETALLE_CAPA_PORTAFOLIO.md`. No hay código de producción nuevo derivado de este documento.
+
+## 0. Modelo de negocio confirmado (contexto, no re-investigado aquí)
+UN solo operador (Moisés) controla TODO el capital en SUS PROPIAS cuentas (Deriv, MT5/fondeos, Polymarket). El capital agrupado de clientes (plantilla/accionista/ahorro) se diversifica ENTRE esas cuentas propias — los clientes nunca conectan API ni operan nada, solo ven resultados (dashboard/informe). Esto significa que "fan-out" aquí es **repartir UNA señal aprobada por el risk gate entre N cuentas que el propio Moisés posee**, no dar acceso a terceros.
+
+## 1. Qué añade este documento sobre `01_DETALLE_CAPA_PORTAFOLIO.md`
+El diseño existente (`PortfolioManager`, gate de dos niveles, `Venue[]`) ya generaliza a "N venues" sin cambios de arquitectura: cada cuenta propia (sea Deriv, MT5-fondeo o wallet Polymarket) es un `Venue` más en la lista. Lo que faltaba y se cubre aquí es la **mecánica técnica de conectar y disparar órdenes en N cuentas del MISMO tipo de broker simultáneamente**, y los riesgos nuevos que aparecen al hacerlo.
+
+## 2. Mecánica de fan-out por familia de broker
+
+### 2.1 Deriv (Native API, WebSocket) — ya resuelto en 11_MT5/00_RESUMEN + 01_DETALLE_API_DERIV
+Cada cuenta propia de Deriv = un token de API (Personal Access Token) distinto, generado desde esa cuenta. `app_id` es por APLICACIÓN, no por usuario/cuenta — el mismo `app_id` sirve para autenticar N tokens distintos. Fan-out = N instancias de `DerivAdapter` (implementando `BrokerAdapter`, `engine/src/broker/brokerAdapter.ts`), cada una con su propia conexión WebSocket persistente, su propio heartbeat (timeout de inactividad 2 min) y su propia re-sincronización tras reconexión. Nada nuevo respecto a lo ya documentado; solo se instancia N veces.
+
+### 2.2 Polymarket — API pura, sin terminal
+Cada cuenta propia = una wallet (clave privada) distinta con su propio API key L2 (derivado por firma L1, según `docs.polymarket.com`), fondeada independientemente en pUSD/USDC sobre Polygon. Fan-out = N instancias de `PolymarketAdapter`, cada una con su wallet. Técnicamente trivial (no hay límite de Polymarket a operar varias wallets del mismo operador).
+**Riesgo específico nuevo**: enviar la MISMA señal simultáneamente desde varias wallets propias al MISMO mercado puede auto-competir contra el propio libro de órdenes (mueve el precio contra uno mismo, "self-impact"), especialmente en mercados poco líquidos (ya señalado como riesgo general en `10_POLYMARKET/00_RESUMEN.md`). Recomendación: si el capital cabe en la profundidad del libro para una sola wallet, enrutar la oportunidad a UNA sola wallet Polymarket, no repartirla entre varias — el reparto tiene sentido entre venues DISTINTOS (Polymarket vs MT5), no entre N wallets del mismo mercado.
+
+### 2.3 MT5 / cuentas de fondeo (prop firms) — mecánica DISTINTA a Deriv, requiere revisar el bloqueo de 00_FOUNDATION/03
+Hallazgo clave de esta investigación: la mayoría de prop firms (FTMO y comparables) solo entregan una **cuenta MT4/MT5 (o cTrader)**, no una API REST/WebSocket propia para el trader. El único producto oficial de MetaQuotes para operar N cuentas desde un único "master" es el plugin server-side **MAMM/PAMM** (`metatrader5.com/en/news/1383`) — pero es una licencia que compra el BRÓKER (para ofrecer gestión de cuentas a sus clientes), no una herramienta disponible para un trader retail/fondeado. Conclusión: **no hay Native API equivalente a Deriv para cuentas de fondeo** — la decisión "usar Native API, no MT5" de `11_MT5/00_RESUMEN.md` aplica al CFD propio de Deriv, NO a los fondeos, que casi siempre exigen MT4/MT5.
+Esto reabre el bloqueo ya anotado en `00_FOUNDATION/03_MCP_TRADING_INVESTIGADO.md` ("MT5 requiere terminal Windows, VPS Linux actual no sirve") — para fondeos SÍ está justificado ahora: **N cuentas de fondeo = N terminales MT5 corriendo (Windows), cada uno con un EA que recibe la orden ya dimensionada desde el motor central** vía algún puente (archivo compartido, named pipes, o un servidor local tipo `ariadng/metatrader-mcp-server` — proyecto comunitario NO oficial, con 32 herramientas y ejecución remota por SSE desde un VPS Windows, ya detectado en `00_FOUNDATION/03`, sin auditar). Alternativa: librerías/servicios de terceros (ej. MetaApi.cloud) que exponen una API sobre un terminal MT5 — también NO oficiales, añaden un tercero con acceso a operar la cuenta (riesgo de custodia/API keys de un proveedor externo).
+**Sin confirmar**: si el/los prop firm(s) que finalmente use Moisés ofrecen alguna vía de automatización sin EA local (algunos futuros firms sí tienen webhook/API propios — ver `08_TRADING/02_DETALLE_FONDEOS_PROP_FIRMS.md`). Verificar por firm concreto antes de dimensionar la VPS Windows.
+
+## 3. Riesgo por cuenta — el gate de dos niveles ya cubre esto, con un matiz nuevo
+El diseño existente (`limiteLocal` + `limiteExterno` + techo global) ya obliga a respetar el límite MÁS estricto de cada cuenta. El matiz nuevo al escalar a N cuentas del MISMO prop firm: enviar la MISMA señal (misma dirección) a varias cuentas propias del mismo firm simultáneamente **no está explícitamente prohibido** en las reglas públicas revisadas de FTMO (`ftmo.com/en/forbidden-trading-practices/`) — lo prohibido ahí es coordinar posiciones OPUESTAS entre cuentas conectadas para manipular, no operar en la MISMA dirección en cuentas propias distintas. Aun así: **sin confirmar** cómo trata cada firm el caso "un mismo trader opera N cuentas propias con la misma estrategia simultánea" — recomendación: preguntar por soporte antes de escalar más allá de 1-2 cuentas en el mismo firm, y **diversificar entre firms distintos** (no solo entre cuentas del mismo firm) para que un cambio de política/baneo de un firm no tumbe todo el capital fondeado a la vez.
+
+## 4. Ejecución concurrente vs secuencial
+Cuando el gate global aprueba repartir una oportunidad entre varios venues, despachar las órdenes de forma **concurrente** (no secuencial) para que todas ejecuten contra condiciones de mercado similares — cada venue recalcula su gate LOCAL justo antes de disparar (equity/posiciones pueden haber cambiado). Un fallo de conexión en un venue (ej. Deriv-cuenta-3 desconectada) NO debe bloquear el resto — cada venue tiene su propio circuit breaker (09_RISK regla 5c); el fallo de uno se audita y se sigue con los demás, nunca se detiene todo el portafolio por un solo venue caído (el HALT global solo lo dispara el drawdown de portafolio, ya decidido en `00_RESUMEN.md`).
+
+## 5. Auditoría específica de fan-out
+Cada "oportunidad" que se reparte entre N cuentas debe dejar un registro de PORTAFOLIO que enlace el mismo `opportunity_id` a las N órdenes individuales (una por `trading_audit_log` de cada venue) — necesario para poder responder "¿en qué cuentas entramos con esta señal y con qué resultado en cada una?" sin reconstruirlo a mano.
+
+## 6. Ventajas / Desventajas de escalar a N cuentas
+- Ventajas: más capital operable sin capital propio 100% (fondeos), diversificación real de contraparte (perder acceso a un venue no detiene el resto), throughput de capital mayor que un solo venue con límites de liquidez/reglas propias.
+- Desventajas/costes: infraestructura Windows nueva y su mantenimiento (para fondeos), más superficie operativa (N conexiones que pueden fallar), riesgo de ambigüedad regulatoria/contractual con cada prop firm al escalar cuentas propias, riesgo de auto-impacto de precio en Polymarket si se reparte mal.
+
+## Sin confirmar
+- Viabilidad y coste de un puente MT5 concreto (EA + bridge propio vs `ariadng/metatrader-mcp-server` vs MetaApi.cloud) — ninguno es oficial de MetaQuotes para este caso de uso.
+- Política exacta de cada prop firm sobre "mismo trader, N cuentas propias, misma estrategia simultánea".
+- Especificaciones y coste de la VPS Windows necesaria si se escala a fondeos (número de terminales que soporta una sola VPS antes de degradar).
+
+## Fuentes
+`metatrader5.com/en/news/1383` y `metaquotes.net/en/company/news/4844` (MAMM plugin oficial, server-side para brókeres — confirmado que NO es para trader retail). `ftmo.com/en/forbidden-trading-practices/` (confirmado: prohíbe posiciones opuestas coordinadas entre cuentas conectadas; no prohíbe explícitamente misma dirección en cuentas propias). `docs.polymarket.com` (auth L1/L2 por wallet — ya citado en 10_POLYMARKET). `00_FOUNDATION/03_MCP_TRADING_INVESTIGADO.md` (bloqueo MT5/Windows, `ariadng/metatrader-mcp-server` como proyecto comunitario no oficial). Resto: diseño propio derivado de `01_DETALLE_CAPA_PORTAFOLIO.md` y `engine/src/broker/brokerAdapter.ts`.

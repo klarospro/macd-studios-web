@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   motion,
   useInView,
@@ -42,7 +42,12 @@ export function BlurReveal({
   );
 }
 
-/** Titular con revelado por palabras (blur + rise escalonado). Marca acentos con **texto**. */
+/**
+ * Titular con revelado por palabras (blur + rise escalonado).
+ * Marca acentos con **texto**: se ponen en itálica y color de acento.
+ * Detección robusta: cualquier palabra que contenga `**` se acentúa y se le
+ * quitan los marcadores, aunque lleve puntuación pegada (p.ej. `**siglo**.`).
+ */
 export function Words({
   text,
   className,
@@ -74,15 +79,17 @@ export function Words({
       aria-label={text.replace(/\*\*/g, "")}
     >
       {words.map((w, i) => {
-        const em = w.startsWith("**") && w.endsWith("**");
-        const clean = em ? w.slice(2, -2) : w;
+        const em = w.includes("**");
+        const clean = w.replace(/\*\*/g, "");
+        const last = i === words.length - 1;
         return (
-          <span key={i} className="inline-block">
-            <motion.span variants={child} aria-hidden className={`inline-block ${em ? "italic text-atlas-gold" : ""}`}>
-              {clean}
-              {i < words.length - 1 ? " " : ""}
-            </motion.span>
-          </span>
+          <Fragment key={i}>
+            <span className={`inline-block ${last ? "" : "mr-[0.24em]"}`}>
+              <motion.span variants={child} aria-hidden className={`inline-block ${em ? "italic text-atlas-gold" : ""}`}>
+                {clean}
+              </motion.span>
+            </span>
+          </Fragment>
         );
       })}
     </motion.span>

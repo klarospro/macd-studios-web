@@ -4,26 +4,26 @@ import "./globals.css";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
-  variable: "--font-display",
+  variable: "--font-playfair",
   display: "swap",
 });
 
 const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-sans",
+  variable: "--font-inter",
   display: "swap",
 });
 
 const jetbrains = JetBrains_Mono({
   subsets: ["latin"],
-  variable: "--font-mono",
+  variable: "--font-jetbrains",
   display: "swap",
 });
 
 // Atlas — serif display de alto contraste (Fraunces), con itálica para acentos editoriales.
 const fraunces = Fraunces({
   subsets: ["latin"],
-  variable: "--font-atlas-display",
+  variable: "--font-fraunces",
   weight: ["400", "500", "600", "700", "900"],
   style: ["normal", "italic"],
   display: "swap",

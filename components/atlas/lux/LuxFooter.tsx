@@ -1,19 +1,28 @@
+import Image from "next/image";
+
 export default function LuxFooter() {
   return (
     <footer className="border-t border-atlas-line/60 bg-atlas-bg2">
       <div className="mx-auto max-w-6xl px-6 py-16 sm:px-10">
         <div className="flex flex-col gap-10 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="text-[16px] font-medium tracking-[0.4em] text-atlas-ink">ATLAS</div>
-            <p className="mt-3 max-w-xs text-[13px] font-light leading-relaxed text-atlas-muted">
+            <Image
+              src="/atlas-logo-soft.png"
+              alt="ATLAS AI — Capital Systems"
+              width={1686}
+              height={353}
+              className="h-8 w-auto opacity-95"
+            />
+            <p className="mt-5 max-w-xs text-[13px] font-light leading-relaxed text-atlas-muted">
               Firma de inversión privada. Gestión automatizada de capital con la preservación como
               primera doctrina.
             </p>
           </div>
           <nav className="flex flex-wrap gap-x-8 gap-y-3 text-[13px] text-atlas-muted">
-            <a href="#manifiesto" className="transition-colors duration-300 hover:text-atlas-ink">Firma</a>
-            <a href="#fortalezas" className="transition-colors duration-300 hover:text-atlas-ink">Principios</a>
-            <a href="#enfoque" className="transition-colors duration-300 hover:text-atlas-ink">Enfoque</a>
+            <a href="#problema" className="transition-colors duration-300 hover:text-atlas-ink">El reto</a>
+            <a href="#sistema" className="transition-colors duration-300 hover:text-atlas-ink">El sistema</a>
+            <a href="#preservacion" className="transition-colors duration-300 hover:text-atlas-ink">Preservación</a>
+            <a href="#rutas" className="transition-colors duration-300 hover:text-atlas-ink">Participar</a>
             <a href="#cta" className="transition-colors duration-300 hover:text-atlas-ink">Contacto</a>
           </nav>
         </div>

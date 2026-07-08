@@ -37,10 +37,26 @@ export class SupabaseAuditLog implements AuditLog {
   }
 }
 
+/**
+ * Deriva la URL del proyecto (`https://<ref>.supabase.co`) desde el claim `ref`
+ * de la service_role JWT. El `ref` NO es secreto: aparece en toda URL pública.
+ * Permite conectar aunque falte SUPABASE_URL en el entorno.
+ */
+function deriveUrlFromKey(key: string): string | undefined {
+  try {
+    const part = key.split(".")[1];
+    if (!part) return undefined;
+    const payload = JSON.parse(Buffer.from(part, "base64").toString("utf8"));
+    return payload.ref ? `https://${payload.ref}.supabase.co` : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Elige el sink de auditoría: Supabase si hay credenciales, si no fichero local JSONL. */
 export function createAuditLog(filePath: string): AuditLog {
-  const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_KEY;
+  const url = process.env.SUPABASE_URL ?? (key ? deriveUrlFromKey(key) : undefined);
   if (url && key) return new SupabaseAuditLog(url, key);
   return new FileAuditLog(filePath);
 }

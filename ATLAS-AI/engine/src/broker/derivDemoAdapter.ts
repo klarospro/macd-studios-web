@@ -89,6 +89,13 @@ export class DerivDemoAdapter implements BrokerAdapter {
     return candles.map((c) => c.close).filter((c): c is number => typeof c === "number");
   }
 
+  /** P&L en vivo de un contrato abierto (proposal_open_contract). profit en la moneda de la cuenta. */
+  async contractPnl(contractId: string): Promise<{ profit: number; currentSpot: number }> {
+    const response = await this.client.send({ proposal_open_contract: 1, contract_id: Number(contractId) });
+    const poc = response.proposal_open_contract as { profit?: number; current_spot?: number } | undefined;
+    return { profit: Number(poc?.profit ?? 0), currentSpot: Number(poc?.current_spot ?? 0) };
+  }
+
   async getEquity(): Promise<number> {
     const response = await this.client.send({ balance: 1, account: "current" });
     const balance = response.balance as { balance?: number } | undefined;
@@ -115,9 +122,12 @@ export class DerivDemoAdapter implements BrokerAdapter {
    */
   async placeOrder(order: Order): Promise<Position> {
     const contractType = order.side === "buy" ? "MULTUP" : "MULTDOWN";
+    // Deriv exige que el stake tenga como máximo 2 decimales; el riskGate produce un
+    // riskAmount exacto (p. ej. 89.9068), así que lo redondeamos a la precisión del broker.
+    const stake = Number(order.riskAmount.toFixed(2));
     const proposalResponse = await this.client.send({
       proposal: 1,
-      amount: order.riskAmount,
+      amount: stake,
       basis: "stake",
       contract_type: contractType,
       currency: this.currency,

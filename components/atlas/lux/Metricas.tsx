@@ -4,7 +4,7 @@ const EARTH = "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto
 
 export default function Metricas() {
   return (
-    <section className="relative overflow-hidden py-32 md:py-44">
+    <section id="preservacion" className="relative overflow-hidden py-32 md:py-44">
       <CinemaImage
         src={EARTH}
         className="opacity-[0.18]"
@@ -12,9 +12,9 @@ export default function Metricas() {
       />
       <div className="relative mx-auto max-w-6xl px-6 sm:px-10">
         <BlurReveal className="mb-16 text-center">
-          <p className="kicker mb-6 text-[11px] text-atlas-gold">La doctrina, en cifras</p>
+          <p className="kicker mb-6 text-[11px] text-atlas-gold">Preservación de capital</p>
           <h2 className="mx-auto max-w-2xl text-[clamp(1.8rem,4vw,3rem)] font-normal leading-[1.12] text-atlas-ink">
-            La disciplina no se declara. Se mide.
+            No perder es la primera forma de ganar.
           </h2>
         </BlurReveal>
 

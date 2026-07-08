@@ -10,6 +10,7 @@
     "backtest:multi": "node --import tsx src/backtest/runMultiTsmomBacktest.ts",
     "fetch:deriv": "node --env-file=../.env.local --import tsx src/scripts/fetchDerivHistory.ts",
     "cycle:daily": "node --env-file=../.env.local --import tsx src/live/dailyCycle.ts",
+    "publish:live": "node --env-file=../.env.local --import tsx src/live/publishLive.ts",
     "export:account": "node --env-file=../.env.local --import tsx src/scripts/exportAccountData.ts"
   },
   "dependencies": {

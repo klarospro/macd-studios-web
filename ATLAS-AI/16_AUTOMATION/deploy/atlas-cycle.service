@@ -1,0 +1,38 @@
+# Atlas AI — ciclo diario de trading (Deriv DEMO) como servicio oneshot.
+# Lo dispara atlas-cycle.timer una vez al día tras el cierre de vela (00:00 UTC).
+# NO es un daemon: arranca, corre una vuelta del ciclo, publica a Supabase y termina.
+#
+# Instalar en: /etc/systemd/system/atlas-cycle.service
+# Ajusta User, WorkingDirectory y la ruta de node/npm a tu VPS (ver DEPLOY_RUNBOOK.md §5).
+
+[Unit]
+Description=Atlas AI - ciclo diario de trading (Deriv DEMO)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=atlas
+Group=atlas
+WorkingDirectory=/opt/atlas/ATLAS-AI/engine
+
+# --execute abre/cierra en la cuenta DEMO de verdad (necesario para el mes de validación).
+# Quita el "--execute" del final para dejarlo en DRY-RUN (no ejecuta, solo calcula y avisa).
+# Invocación directa de node (no npm) para no depender de la caché de npm bajo ProtectSystem=strict.
+ExecStart=/usr/bin/node --env-file=/opt/atlas/ATLAS-AI/.env.local --import tsx src/live/dailyCycle.ts --execute
+
+# El .env.local (secretos) lo carga el propio script vía --env-file=../.env.local.
+# No lo declaramos aquí para no duplicar la fuente de verdad de los secretos.
+
+# Endurecimiento básico: sin privilegios extra, FS de solo lectura salvo runtime.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/atlas/ATLAS-AI/engine/runtime
+
+# Si Deriv/Supabase fallan puntualmente, el timer reintenta al día siguiente; no reiniciamos en bucle.
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

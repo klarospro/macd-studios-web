@@ -1,0 +1,13 @@
+# Secretos: NUNCA versionar
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+id_rsa*
+
+# Dependencias / build
+node_modules/
+.next/
+.vercel/
+dist/

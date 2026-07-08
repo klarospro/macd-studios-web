@@ -1,0 +1,27 @@
+# OPCIONAL — Atlas AI: publicador ligero de equity + P&L en vivo a Supabase.
+# NO toma decisiones de estrategia (eso es atlas-cycle). Solo refresca el dashboard
+# entre ciclos para que el equity/P&L de las posiciones abiertas se vea "en vivo".
+# Si te basta con el snapshot 1x/día del ciclo, NO instales esto.
+#
+# Instalar en: /etc/systemd/system/atlas-publish.service
+
+[Unit]
+Description=Atlas AI - publicador ligero de equity/PnL a Supabase
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=atlas
+Group=atlas
+WorkingDirectory=/opt/atlas/ATLAS-AI/engine
+ExecStart=/usr/bin/node --env-file=/opt/atlas/ATLAS-AI/.env.local --import tsx src/live/publishLive.ts
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/atlas/ATLAS-AI/engine/runtime
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target

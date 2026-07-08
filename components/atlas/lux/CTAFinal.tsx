@@ -5,7 +5,7 @@ const MAIL = "mailto:moiseschirinooficial99@gmail.com";
 
 const ACCIONES = [
   { t: "Agendar una llamada", d: "Una conversación privada, sin compromiso.", href: `${MAIL}?subject=ATLAS%20—%20Agendar%20llamada` },
-  { t: "Solicitar el dossier", d: "El documento completo de la firma.", href: `${MAIL}?subject=ATLAS%20—%20Solicitar%20dossier`, featured: true },
+  { t: "Solicitar acceso", d: "Formulario privado · recibe el dossier al aprobarse.", href: `/atlas/solicitud`, featured: true },
   { t: "Hablar con un advisor", d: "Resolvemos sus preguntas directamente.", href: `${MAIL}?subject=ATLAS%20—%20Hablar%20con%20advisor` },
 ];
 
