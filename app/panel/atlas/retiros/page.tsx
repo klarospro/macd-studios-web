@@ -1,43 +1,40 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { renderContrato, renderCorreoAprobacion } from '@/lib/atlas-templates'
 
-interface Application {
+interface Withdrawal {
   id: number
   created_at: string
   name: string
   email: string
-  phone: string | null
-  address: string | null
-  capital: number | null
+  period_type: string
+  period_label: string | null
+  amount: number | null
   currency: string | null
-  account_type: string
-  agenda: string | null
-  message: string | null
-  status: 'pending' | 'approved' | 'rejected'
+  notes: string | null
+  status: 'pending' | 'approved' | 'paid' | 'rejected'
 }
 
 const STATUS_STYLE: Record<string, string> = {
   pending: 'border-[#D2A05A]/40 text-[#D2A05A]',
   approved: 'border-[#5BC08C]/40 text-[#5BC08C]',
+  paid: 'border-[#2dd4bf]/40 text-[#2dd4bf]',
   rejected: 'border-[#E0736A]/40 text-[#E0736A]',
 }
 
-export default function SolicitudesPanel() {
+export default function RetirosPanel() {
   const [token, setToken] = useState('')
   const [authed, setAuthed] = useState(false)
-  const [rows, setRows] = useState<Application[]>([])
+  const [rows, setRows] = useState<Withdrawal[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
-  const [preview, setPreview] = useState<Application | null>(null)
+  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'paid' | 'rejected'>('all')
 
   const load = useCallback(async (tok: string) => {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(`/api/atlas/solicitudes?token=${encodeURIComponent(tok)}`)
+      const res = await fetch(`/api/atlas/retiros?token=${encodeURIComponent(tok)}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Error')
       setRows(data.rows)
@@ -59,9 +56,9 @@ export default function SolicitudesPanel() {
     }
   }, [load])
 
-  async function act(id: number, status: 'approved' | 'rejected') {
+  async function act(id: number, status: Withdrawal['status']) {
     setRows((r) => r.map((x) => (x.id === id ? { ...x, status } : x)))
-    await fetch('/api/atlas/solicitudes', {
+    await fetch('/api/atlas/retiros', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, status, token }),
@@ -77,6 +74,7 @@ export default function SolicitudesPanel() {
     all: rows.length,
     pending: rows.filter((r) => r.status === 'pending').length,
     approved: rows.filter((r) => r.status === 'approved').length,
+    paid: rows.filter((r) => r.status === 'paid').length,
     rejected: rows.filter((r) => r.status === 'rejected').length,
   }
 
@@ -90,7 +88,7 @@ export default function SolicitudesPanel() {
           }}
           className="w-full max-w-sm rounded-2xl border border-[#24303C] bg-[#131A23] p-7"
         >
-          <div className="mb-1 text-lg font-semibold tracking-tight">Atlas · Panel de solicitudes</div>
+          <div className="mb-1 text-lg font-semibold tracking-tight">Atlas · Solicitudes de retiro</div>
           <p className="mb-5 text-sm text-[#8695A6]">Acceso restringido al administrador.</p>
           <input
             type="password"
@@ -118,8 +116,10 @@ export default function SolicitudesPanel() {
       <div className="mx-auto max-w-6xl">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Solicitudes de acceso</h1>
-            <p className="mt-0.5 text-sm text-[#8695A6]">Inscripciones de inversores · aprobar o rechazar</p>
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Solicitudes de retiro</h1>
+            <p className="mt-0.5 text-sm text-[#8695A6]">
+              Retiros de ganancias · aprobar, marcar pagado o rechazar. Nada se paga sin tu autorización.
+            </p>
           </div>
           <button
             onClick={() => load(token)}
@@ -130,7 +130,7 @@ export default function SolicitudesPanel() {
         </div>
 
         <div className="mb-5 flex flex-wrap gap-2">
-          {(['all', 'pending', 'approved', 'rejected'] as const).map((f) => (
+          {(['all', 'pending', 'approved', 'paid', 'rejected'] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -140,7 +140,7 @@ export default function SolicitudesPanel() {
                   : 'border-[#24303C] text-[#8695A6] hover:text-[#EDF1F6]'
               }`}
             >
-              {{ all: 'Todas', pending: 'Pendientes', approved: 'Aprobadas', rejected: 'Rechazadas' }[f]}{' '}
+              {{ all: 'Todas', pending: 'Pendientes', approved: 'Aprobadas', paid: 'Pagadas', rejected: 'Rechazadas' }[f]}{' '}
               <span className="opacity-60">{counts[f]}</span>
             </button>
           ))}
@@ -150,7 +150,7 @@ export default function SolicitudesPanel() {
           <table className="w-full border-collapse text-[13.5px]">
             <thead>
               <tr className="text-left">
-                {['Fecha', 'Nombre', 'Contacto', 'Perfil', 'Capital', 'Agenda', 'Estado', ''].map((h) => (
+                {['Fecha', 'Cliente', 'Periodo', 'Importe', 'Notas', 'Estado', ''].map((h) => (
                   <th
                     key={h}
                     className="border-b border-[#24303C] px-3 py-3 font-mono text-[10.5px] font-medium uppercase tracking-wider text-[#8695A6]"
@@ -163,7 +163,7 @@ export default function SolicitudesPanel() {
             <tbody>
               {shown.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-3 py-10 text-center text-sm text-[#8695A6]">
+                  <td colSpan={7} className="px-3 py-10 text-center text-sm text-[#8695A6]">
                     Sin solicitudes {filter !== 'all' ? 'en este estado' : 'todavía'}.
                   </td>
                 </tr>
@@ -173,29 +173,27 @@ export default function SolicitudesPanel() {
                   <td className="whitespace-nowrap px-3 py-3 text-[#8695A6]">{day(r.created_at)}</td>
                   <td className="px-3 py-3">
                     <div className="font-medium">{r.name}</div>
-                    {r.address && <div className="text-xs text-[#8695A6]">{r.address}</div>}
-                    {r.message && <div className="mt-1 max-w-[26ch] text-xs text-[#55636F]">{r.message}</div>}
-                  </td>
-                  <td className="px-3 py-3">
-                    <a href={`mailto:${r.email}`} className="text-[#2dd4bf] hover:underline">
+                    <a href={`mailto:${r.email}`} className="text-xs text-[#2dd4bf] hover:underline">
                       {r.email}
                     </a>
-                    {r.phone && <div className="text-xs text-[#8695A6]">{r.phone}</div>}
                   </td>
-                  <td className="px-3 py-3 capitalize text-[#8695A6]">{r.account_type}</td>
-                  <td className="whitespace-nowrap px-3 py-3 tabular-nums">{money(r.capital, r.currency)}</td>
-                  <td className="px-3 py-3 text-xs text-[#8695A6]">{r.agenda || '—'}</td>
+                  <td className="px-3 py-3 capitalize text-[#8695A6]">
+                    {r.period_type}
+                    {r.period_label && <div className="text-xs text-[#55636F]">{r.period_label}</div>}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-3 tabular-nums">{money(r.amount, r.currency)}</td>
+                  <td className="px-3 py-3 text-xs text-[#8695A6]">
+                    {r.notes ? <span className="block max-w-[24ch]">{r.notes}</span> : '—'}
+                  </td>
                   <td className="px-3 py-3">
                     <span
-                      className={`rounded-full border px-2.5 py-0.5 font-mono text-[10.5px] uppercase ${
-                        STATUS_STYLE[r.status]
-                      }`}
+                      className={`rounded-full border px-2.5 py-0.5 font-mono text-[10.5px] uppercase ${STATUS_STYLE[r.status]}`}
                     >
                       {r.status}
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-3 py-3">
-                    {r.status !== 'approved' && (
+                    {r.status === 'pending' && (
                       <button
                         onClick={() => act(r.id, 'approved')}
                         className="mr-1.5 rounded-md border border-[#5BC08C]/40 px-2.5 py-1 text-xs text-[#5BC08C] transition-colors hover:bg-[#5BC08C]/10"
@@ -203,20 +201,22 @@ export default function SolicitudesPanel() {
                         Aprobar
                       </button>
                     )}
-                    {r.status !== 'rejected' && (
+                    {r.status === 'approved' && (
+                      <button
+                        onClick={() => act(r.id, 'paid')}
+                        className="mr-1.5 rounded-md border border-[#2dd4bf]/40 px-2.5 py-1 text-xs text-[#2dd4bf] transition-colors hover:bg-[#2dd4bf]/10"
+                      >
+                        Marcar pagado
+                      </button>
+                    )}
+                    {r.status !== 'rejected' && r.status !== 'paid' && (
                       <button
                         onClick={() => act(r.id, 'rejected')}
-                        className="mr-1.5 rounded-md border border-[#E0736A]/40 px-2.5 py-1 text-xs text-[#E0736A] transition-colors hover:bg-[#E0736A]/10"
+                        className="rounded-md border border-[#E0736A]/40 px-2.5 py-1 text-xs text-[#E0736A] transition-colors hover:bg-[#E0736A]/10"
                       >
                         Rechazar
                       </button>
                     )}
-                    <button
-                      onClick={() => setPreview(r)}
-                      className="rounded-md border border-[#24303C] px-2.5 py-1 text-xs text-[#8695A6] transition-colors hover:text-[#EDF1F6]"
-                    >
-                      Contrato/Correo
-                    </button>
                   </td>
                 </tr>
               ))}
@@ -225,78 +225,9 @@ export default function SolicitudesPanel() {
         </div>
 
         <p className="mt-4 text-xs text-[#55636F]">
-          Datos confidenciales de inscripción. Acceso solo administrador · Atlas AI · MACD Studios
+          Modo solo-solicitud: ningún pago se ejecuta automáticamente. Cada retiro requiere tu
+          autorización manual · Atlas AI · MACD Studios
         </p>
-      </div>
-
-      {preview && <DocsModal app={preview} onClose={() => setPreview(null)} />}
-    </div>
-  )
-}
-
-function DocsModal({ app, onClose }: { app: Application; onClose: () => void }) {
-  const [tab, setTab] = useState<'correo' | 'contrato'>('correo')
-  const correo = renderCorreoAprobacion(app)
-  const contrato = renderContrato(app)
-  const text = tab === 'correo' ? `${correo.subject}\n\n${correo.body}` : contrato
-
-  const copy = () => navigator.clipboard?.writeText(text).catch(() => null)
-  const mailto = `mailto:${encodeURIComponent(app.email)}?subject=${encodeURIComponent(
-    correo.subject
-  )}&body=${encodeURIComponent(correo.body)}`
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl border border-[#24303C] bg-[#131A23]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-[#24303C] px-5 py-4">
-          <div className="text-sm font-semibold">{app.name}</div>
-          <button onClick={onClose} className="text-[#8695A6] hover:text-[#EDF1F6]" aria-label="Cerrar">
-            ✕
-          </button>
-        </div>
-        <div className="flex gap-2 px-5 pt-4">
-          {(['correo', 'contrato'] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                tab === t
-                  ? 'border-[#2dd4bf]/50 bg-[#2dd4bf]/10 text-[#2dd4bf]'
-                  : 'border-[#24303C] text-[#8695A6] hover:text-[#EDF1F6]'
-              }`}
-            >
-              {t === 'correo' ? 'Correo de aprobación' : 'Contrato (borrador)'}
-            </button>
-          ))}
-        </div>
-        <pre className="m-5 flex-1 overflow-auto whitespace-pre-wrap rounded-lg border border-[#24303C] bg-[#0B0F14] p-4 font-mono text-[12px] leading-relaxed text-[#C3CCD6]">
-          {text}
-        </pre>
-        <div className="flex flex-wrap gap-2 border-t border-[#24303C] px-5 py-4">
-          <button
-            onClick={copy}
-            className="rounded-lg border border-[#24303C] px-3 py-1.5 text-xs text-[#8695A6] transition-colors hover:text-[#EDF1F6]"
-          >
-            Copiar
-          </button>
-          {tab === 'correo' && (
-            <a
-              href={mailto}
-              className="rounded-lg bg-[#2dd4bf] px-3 py-1.5 text-xs font-semibold text-[#08201d] transition-opacity hover:opacity-90"
-            >
-              Abrir en correo
-            </a>
-          )}
-          <span className="ml-auto self-center text-[11px] text-[#55636F]">
-            Borrador · revisar antes de enviar
-          </span>
-        </div>
       </div>
     </div>
   )

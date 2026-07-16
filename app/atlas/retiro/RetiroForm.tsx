@@ -4,44 +4,34 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
 
-const TIPOS = [
-  { id: 'inversor', t: 'Inversor', d: 'Confía capital para gestión bajo la metodología.' },
-  { id: 'accionista', t: 'Accionista', d: 'Participa de la firma como socio.' },
-  { id: 'plantilla', t: 'Plantilla', d: 'Quiere licenciar el sistema para uso propio.' },
+const PERIODOS = [
+  { id: 'trimestral', t: 'Trimestral', d: 'Retiro de ganancias cada trimestre.' },
+  { id: 'anual', t: 'Anual', d: 'Retiro de ganancias una vez al año.' },
 ]
 
 type State = 'idle' | 'sending' | 'ok' | 'error'
 
-export default function SolicitudForm() {
-  const [tipo, setTipo] = useState('inversor')
+export default function RetiroForm() {
+  const [periodo, setPeriodo] = useState('trimestral')
   const [state, setState] = useState<State>('idle')
   const [err, setErr] = useState('')
-  // Mínimo del calendario = hoy (no permitir agendar en el pasado).
-  const today = new Date().toISOString().slice(0, 10)
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setState('sending')
     setErr('')
     const fd = new FormData(e.currentTarget)
-    const agendaDate = String(fd.get('agenda_date') ?? '').trim()
-    const agendaSlot = String(fd.get('agenda_slot') ?? '').trim()
-    const agenda = [agendaDate, agendaSlot].filter(Boolean).join(' · ')
     const payload = {
       name: fd.get('name'),
       email: fd.get('email'),
-      phone: fd.get('phone'),
-      address: fd.get('address'),
-      capital: fd.get('capital'),
+      period_type: periodo,
+      period_label: fd.get('period_label'),
+      amount: fd.get('amount'),
       currency: fd.get('currency'),
-      account_type: tipo,
-      agenda,
-      agenda_date: agendaDate,
-      agenda_slot: agendaSlot,
-      message: fd.get('message'),
+      notes: fd.get('notes'),
     }
     try {
-      const res = await fetch('/api/atlas/solicitud', {
+      const res = await fetch('/api/atlas/retiro', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -64,12 +54,11 @@ export default function SolicitudForm() {
           </svg>
         </div>
         <h1 className="text-[clamp(2rem,4vw,3rem)] font-normal leading-tight text-atlas-ink">
-          Solicitud recibida.
+          Solicitud de retiro recibida.
         </h1>
         <p className="mx-auto mt-5 max-w-md text-[16px] font-light leading-relaxed text-atlas-muted">
-          Gracias. Revisaremos su solicitud y le contactaremos para agendar una conversación privada.
-          Al aprobarse recibirá el <span className="text-atlas-ink">dossier de la firma</span> y acceso
-          a su <span className="text-atlas-ink">dashboard de metodología</span>.
+          Gracias. Revisaremos su solicitud, verificaremos la disponibilidad del periodo y le
+          confirmaremos la ejecución del retiro.
         </p>
         <Link
           href="/atlas"
@@ -88,29 +77,29 @@ export default function SolicitudForm() {
           <Image src="/atlas-mark-soft.png" alt="" width={44} height={40} className="h-7 w-auto" />
           <span className="text-[14px] font-medium tracking-[0.38em] text-atlas-ink">ATLAS</span>
         </Link>
-        <p className="kicker mb-4 text-[11px] text-atlas-gold">Solicitud de acceso</p>
+        <p className="kicker mb-4 text-[11px] text-atlas-gold">Retiro de ganancias</p>
         <h1 className="text-[clamp(2rem,4.4vw,3.2rem)] font-normal leading-[1.06] text-atlas-ink">
-          Comencemos una conversación privada.
+          Solicite el retiro de sus ganancias.
         </h1>
         <p className="mt-4 max-w-md text-[15.5px] font-light leading-relaxed text-atlas-muted">
-          Cuéntenos quién es y qué busca. Revisamos cada solicitud personalmente; no hay compromiso.
+          Como en un fondo, los retiros se solicitan por periodo (trimestral o anual) y se ejecutan
+          tras verificar la disponibilidad. Sin movimientos automáticos.
         </p>
       </div>
 
       <form onSubmit={onSubmit} className="space-y-6" noValidate>
-        {/* Tipo de cuenta */}
         <fieldset>
           <legend className="mb-3 text-[12px] font-medium uppercase tracking-[0.14em] text-atlas-muted">
-            Perfil
+            Periodicidad
           </legend>
-          <div className="grid gap-2.5 sm:grid-cols-3">
-            {TIPOS.map((o) => {
-              const active = tipo === o.id
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            {PERIODOS.map((o) => {
+              const active = periodo === o.id
               return (
                 <button
                   type="button"
                   key={o.id}
-                  onClick={() => setTipo(o.id)}
+                  onClick={() => setPeriodo(o.id)}
                   aria-pressed={active}
                   className={`rounded-xl border p-3.5 text-left transition-all duration-300 ${
                     active
@@ -129,12 +118,10 @@ export default function SolicitudForm() {
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="Nombre completo" name="name" required autoComplete="name" placeholder="Su nombre" />
           <Field label="Correo" name="email" type="email" required autoComplete="email" placeholder="usted@correo.com" />
-          <Field label="Teléfono" name="phone" type="tel" autoComplete="tel" placeholder="+34 …" />
-          <Field label="Dirección" name="address" autoComplete="street-address" placeholder="Ciudad, país" />
         </div>
 
         <div className="grid gap-5 sm:grid-cols-[1fr_auto]">
-          <Field label="Capital a gestionar (aprox.)" name="capital" inputMode="numeric" placeholder="50.000" />
+          <Field label="Importe a retirar (aprox.)" name="amount" inputMode="numeric" placeholder="5.000" />
           <div>
             <label htmlFor="currency" className="mb-2 block text-[12px] font-medium uppercase tracking-[0.14em] text-atlas-muted">
               Divisa
@@ -151,51 +138,17 @@ export default function SolicitudForm() {
           </div>
         </div>
 
-        {/* Calendario para agendar la llamada */}
-        <fieldset>
-          <legend className="mb-3 text-[12px] font-medium uppercase tracking-[0.14em] text-atlas-muted">
-            Agenda una llamada
-          </legend>
-          <div className="grid gap-5 sm:grid-cols-[1fr_auto]">
-            <div>
-              <label htmlFor="agenda_date" className="mb-2 block text-[12px] font-medium uppercase tracking-[0.14em] text-atlas-muted">
-                Fecha preferida
-              </label>
-              <input
-                id="agenda_date"
-                name="agenda_date"
-                type="date"
-                min={today}
-                className="h-[46px] w-full rounded-xl border border-atlas-line bg-atlas-panel/40 px-3.5 text-[15px] text-atlas-ink outline-none transition-colors [color-scheme:dark] focus:border-atlas-gold/60"
-              />
-            </div>
-            <div>
-              <label htmlFor="agenda_slot" className="mb-2 block text-[12px] font-medium uppercase tracking-[0.14em] text-atlas-muted">
-                Franja
-              </label>
-              <select
-                id="agenda_slot"
-                name="agenda_slot"
-                defaultValue="Mañana"
-                className="h-[46px] rounded-xl border border-atlas-line bg-atlas-panel/40 px-3 text-[15px] text-atlas-ink outline-none transition-colors focus:border-atlas-gold/60"
-              >
-                <option>Mañana</option>
-                <option>Mediodía</option>
-                <option>Tarde</option>
-              </select>
-            </div>
-          </div>
-        </fieldset>
+        <Field label="Periodo (opcional)" name="period_label" placeholder="Ej. Q3 2026 o 2026" />
 
         <div>
-          <label htmlFor="message" className="mb-2 block text-[12px] font-medium uppercase tracking-[0.14em] text-atlas-muted">
-            Mensaje (opcional)
+          <label htmlFor="notes" className="mb-2 block text-[12px] font-medium uppercase tracking-[0.14em] text-atlas-muted">
+            Notas (opcional)
           </label>
           <textarea
-            id="message"
-            name="message"
+            id="notes"
+            name="notes"
             rows={3}
-            placeholder="Cuéntenos su objetivo…"
+            placeholder="Cualquier detalle relevante…"
             className="w-full rounded-xl border border-atlas-line bg-atlas-panel/40 px-3.5 py-3 text-[15px] leading-relaxed text-atlas-ink outline-none transition-colors placeholder:text-atlas-muted/60 focus:border-atlas-gold/60"
           />
         </div>
@@ -211,12 +164,12 @@ export default function SolicitudForm() {
           disabled={state === 'sending'}
           className="group relative w-full overflow-hidden rounded-full bg-atlas-goldsoft px-8 py-4 text-[14.5px] font-semibold tracking-wide text-atlas-bg transition-all duration-500 hover:shadow-[0_10px_40px_-8px_rgba(45,212,191,0.45)] disabled:opacity-60 sm:w-auto"
         >
-          {state === 'sending' ? 'Enviando…' : 'Enviar solicitud'}
+          {state === 'sending' ? 'Enviando…' : 'Solicitar retiro'}
         </button>
 
         <p className="pt-2 text-[11.5px] font-light leading-relaxed text-atlas-muted/70">
-          Sus datos se tratan de forma confidencial y solo para evaluar la solicitud. Esto no constituye
-          oferta ni asesoramiento financiero; toda gestión se valida primero en entornos de prueba.
+          Esta es una solicitud, no una orden de pago. La ejecución del retiro se confirma tras la
+          revisión y verificación de disponibilidad. No constituye asesoramiento financiero.
         </p>
       </form>
     </div>

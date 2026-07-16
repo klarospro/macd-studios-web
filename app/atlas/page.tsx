@@ -11,7 +11,7 @@ import Historial from "@/components/atlas/lux/Historial";
 import Modalidades from "@/components/atlas/lux/Modalidades";
 import Testimonios from "@/components/atlas/lux/Testimonios";
 import CTAFinal from "@/components/atlas/lux/CTAFinal";
-import LuxFooter from "@/components/atlas/lux/LuxFooter";
+import { CinematicFooter } from "@/components/ui/motion-footer";
 
 export const metadata: Metadata = {
   title: "ATLAS — Gestión automatizada de capital | Sistema 24/7",
@@ -23,7 +23,7 @@ export default function AtlasPage() {
   return (
     <div className="atlas min-h-screen antialiased">
       <LuxNav />
-      <main>
+      <main className="relative z-10 bg-atlas-bg">
         {/* Zona de impacto */}
         <Hero />
 
@@ -49,7 +49,10 @@ export default function AtlasPage() {
         <Testimonios />
         <CTAFinal />
       </main>
-      <LuxFooter />
+
+      {/* Footer cinematográfico (curtain reveal + GSAP). Se revela por debajo del
+          contenido al llegar al final. Reemplaza al LuxFooter estático. */}
+      <CinematicFooter />
     </div>
   );
 }

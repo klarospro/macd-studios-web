@@ -1,6 +1,9 @@
 # Automatización — runner de trading 24/7
 
-Estado: 🟡 Fase 5 — despliegue 24/7 preparado (artefactos listos; falta ejecutar en el VPS).
+Estado: 🟢 EN VIVO desde 2026-07-08. El bot corre solo en el VPS Hetzner: `atlas-cycle.timer`
+dispara `atlas-cycle.service` cada día a las **00:05 UTC** con `--execute`. Verificado 2026-07-11:
+posiciones y equity en Supabase con timestamp 00:05 UTC (el bot operó esa madrugada).
+Pendiente menor: activar Telegram (`TELEGRAM_BOT_TOKEN`+chat_id en el `.env.local` del VPS).
 
 ## Qué es
 Paquete para que el ciclo de trading (Deriv DEMO) corra **solo, todos los días, sin el portátil de

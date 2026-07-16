@@ -52,7 +52,7 @@ export default function Hero() {
           poster="/atlas-mark-soft.png"
           aria-hidden
         >
-          <source src="/videos/hero-bg.mp4" type="video/mp4" />
+          <source src="/videos/planeta.mp4" type="video/mp4" />
         </video>
       )}
       {/* Aurora de marca + rejilla de datos. */}

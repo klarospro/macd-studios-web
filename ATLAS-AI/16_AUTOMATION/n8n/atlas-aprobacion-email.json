@@ -1,0 +1,70 @@
+{
+  "name": "Atlas — Aprobación → Correo al cliente + Telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "atlas-aprobacion",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-aprobacion",
+      "name": "Webhook aprobación",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [420, 300],
+      "webhookId": "atlas-aprobacion"
+    },
+    {
+      "parameters": {
+        "fromEmail": "PON_AQUI_TU_CORREO_REMITENTE",
+        "toEmail": "={{ $json.body.email }}",
+        "subject": "={{ $json.body.subject }}",
+        "text": "={{ $json.body.email_body }}",
+        "options": {}
+      },
+      "id": "email-cliente",
+      "name": "Email — aprobación al cliente",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [700, 220],
+      "credentials": {
+        "smtp": {
+          "id": "REEMPLAZAR_POR_TU_CREDENCIAL_SMTP",
+          "name": "SMTP Atlas"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "PON_AQUI_TU_CHAT_ID",
+        "text": "=✅ Aprobado y correo enviado a {{ $json.body.name }} ({{ $json.body.email }}).",
+        "additionalFields": {}
+      },
+      "id": "telegram-aprobacion",
+      "name": "Telegram — confirmación",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [700, 380],
+      "credentials": {
+        "telegramApi": {
+          "id": "REEMPLAZAR_POR_TU_CREDENCIAL_TELEGRAM",
+          "name": "Telegram Atlas"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook aprobación": {
+      "main": [
+        [
+          { "node": "Email — aprobación al cliente", "type": "main", "index": 0 },
+          { "node": "Telegram — confirmación", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "pinData": {}
+}

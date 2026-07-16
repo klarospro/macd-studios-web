@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { BlurReveal } from "./motion";
 
@@ -88,9 +89,51 @@ const RESPALDO = [
 ];
 
 export default function Recorrido() {
+  const reduce = useReducedMotion();
+  const sectionRef = useRef<HTMLElement>(null);
+  // trading.mp4 pesa ~34MB: solo se monta cuando la sección se acerca al viewport
+  // (y nunca con movimiento reducido), para no penalizar la carga inicial.
+  const [showVideo, setShowVideo] = useState(false);
+  useEffect(() => {
+    if (reduce) return;
+    const el = sectionRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setShowVideo(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: "300px" }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [reduce]);
+
   return (
-    <section id="sistema" className="relative border-t border-atlas-line/50 py-28 md:py-40">
-      <div className="mx-auto max-w-6xl px-6 sm:px-10">
+    <section
+      ref={sectionRef}
+      id="sistema"
+      className="relative overflow-hidden border-t border-atlas-line/50 py-28 md:py-40"
+    >
+      {/* Textura de trading (trading.mp4), diferida y muy sutil tras el contenido. */}
+      {showVideo && (
+        <video
+          className="absolute inset-0 z-0 h-full w-full object-cover opacity-[0.14] pointer-events-none [mask-image:radial-gradient(ellipse_80%_60%_at_50%_50%,#000_10%,transparent_78%)]"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="none"
+          aria-hidden
+        >
+          <source src="/videos/trading.mp4" type="video/mp4" />
+        </video>
+      )}
+      <div aria-hidden className="absolute inset-0 z-0 bg-gradient-to-b from-atlas-bg via-atlas-bg/70 to-atlas-bg" />
+
+      <div className="relative z-10 mx-auto max-w-6xl px-6 sm:px-10">
         <BlurReveal className="mb-14 md:mb-16">
           <p className="kicker mb-6 text-[11px] text-atlas-gold">Respaldo y recorrido</p>
           <h2 className="max-w-2xl text-[clamp(2rem,4.4vw,3.4rem)] font-normal leading-[1.08] text-atlas-ink">

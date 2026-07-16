@@ -27,6 +27,18 @@
   --color-atlas-ink: #eef4f3;
   --color-atlas-muted: #97a4b2;
   --font-atlas-display: var(--font-fraunces), "Fraunces", Georgia, serif;
+
+  /* shadcn/ui tokens — mapeados a la paleta Atlas (teal cinematic).
+     Habilitan componentes shadcn (p.ej. components/ui/motion-footer) generando
+     utilidades bg-background / text-foreground / text-primary, etc. Son nombres
+     nuevos: no colisionan con el tema MACD ni con el ámbito .atlas. */
+  --color-background: var(--color-atlas-bg);
+  --color-foreground: var(--color-atlas-ink);
+  --color-primary: var(--color-atlas-gold);
+  --color-secondary: var(--color-atlas-blue);
+  --color-muted-foreground: var(--color-atlas-muted);
+  --color-border: var(--color-atlas-line);
+  --color-destructive: #f87171;
 }
 
 @layer base {

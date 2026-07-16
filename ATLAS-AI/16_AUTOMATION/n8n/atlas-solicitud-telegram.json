@@ -1,0 +1,47 @@
+{
+  "name": "Atlas — Aviso de solicitud → Telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "atlas-solicitud",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-solicitud",
+      "name": "Webhook solicitud",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [420, 300],
+      "webhookId": "atlas-solicitud"
+    },
+    {
+      "parameters": {
+        "chatId": "PON_AQUI_TU_CHAT_ID",
+        "text": "={{ $json.body.text }}",
+        "additionalFields": {
+          "disable_web_page_preview": true
+        }
+      },
+      "id": "telegram-solicitud",
+      "name": "Telegram — avisar a Moisés",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [700, 300],
+      "credentials": {
+        "telegramApi": {
+          "id": "REEMPLAZAR_POR_TU_CREDENCIAL_TELEGRAM",
+          "name": "Telegram Atlas"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook solicitud": {
+      "main": [[{ "node": "Telegram — avisar a Moisés", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "pinData": {}
+}
