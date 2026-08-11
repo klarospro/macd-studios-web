@@ -16,7 +16,9 @@
     "sonda:volumen": "node --env-file=../.env.local --import tsx src/scripts/sondaVolumen.ts",
     "publish:live": "node --env-file=../.env.local --import tsx src/live/publishLive.ts",
     "export:account": "node --env-file=../.env.local --import tsx src/scripts/exportAccountData.ts",
-    "sonda:operabilidad": "node --env-file=../.env.local --import tsx src/scripts/sondaOperabilidad.ts"
+    "sonda:operabilidad": "node --env-file=../.env.local --import tsx src/scripts/sondaOperabilidad.ts",
+    "ver:posiciones": "node --env-file=../.env.local --import tsx src/scripts/verPosiciones.ts",
+    "limpiar:fantasmas": "node --env-file=../.env.local --import tsx src/scripts/limpiarFantasmas.ts"
   },
   "dependencies": {
     "ws": "^8.18.0",
