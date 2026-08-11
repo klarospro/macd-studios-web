@@ -23,6 +23,12 @@ export interface EstadoCartera {
   sleeves: CarteraSleeves;
   /** Fecha del último resumen semanal enviado, para no repetirlo. */
   ultimoResumen?: string;
+  /**
+   * Día UTC de la última revisión del Core. El Core opera velas DIARIAS con
+   * horizonte semanal: repasarlo cada pasada serían 23 peticiones por minuto
+   * para releer barras que cambian una vez al día.
+   */
+  ultimaPasadaCore?: string;
 }
 
 /** Lunes de la semana de `fecha` (ISO, UTC). */

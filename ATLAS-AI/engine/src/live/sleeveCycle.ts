@@ -204,6 +204,11 @@ async function pasadaCore(
   const bloque = config.core as Record<string, any>;
   if (bloque.activo !== true) return;
 
+  // El Core trabaja sobre velas diarias con horizonte semanal: una revisión al
+  // día basta y evita 23 peticiones por minuto para releer barras idénticas.
+  if (estado.ultimaPasadaCore === fecha) return;
+  estado.ultimaPasadaCore = fecha;
+
   for (const symbol of instrumentosDe(config, "core")) {
     try {
       const { trend, volTarget } = paramsCoreDesdeConfig(bloque, symbol, "core");

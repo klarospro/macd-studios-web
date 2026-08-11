@@ -1,0 +1,40 @@
+# Atlas AI — ciclo de cartera multi-sleeve (Core + Intradía + EventScalp).
+# Cuenta Deriv DEMO. Lo dispara atlas-sleeves.timer cada 5 minutos.
+#
+# SUSTITUYE a atlas-cycle.service (que ejecutaba dailyCycle.ts una vez al día).
+# No es un daemon: arranca, hace UNA pasada y termina.
+#
+# Instalar en: /etc/systemd/system/atlas-sleeves.service
+
+[Unit]
+Description=Atlas AI - cartera multi-sleeve (Deriv DEMO)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=atlas
+Group=atlas
+WorkingDirectory=/opt/atlas/ATLAS-AI/engine
+
+# --execute abre/cierra de verdad en la cuenta DEMO.
+# Quítalo para dejarlo en DRY-RUN (calcula y avisa, no ejecuta).
+# Invocación directa de node (no npm) para no depender de la caché de npm
+# bajo ProtectSystem=strict.
+ExecStart=/usr/bin/node --env-file=/opt/atlas/ATLAS-AI/.env.local --import tsx src/live/sleeveCycle.ts --execute
+
+# Una pasada nunca debe quedarse colgada bloqueando la siguiente.
+TimeoutStartSec=240
+
+# El estado (runtime/) y los logs deben poder escribirse; el resto del disco no.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+ReadWritePaths=/opt/atlas/ATLAS-AI/engine/runtime
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
