@@ -222,7 +222,13 @@ eventscalp:
   # Puntuación de la sorpresa (actual vs consenso). La IA PUNTÚA; el motor
   # DECIDE con estas reglas. La IA nunca opera sola.
   sorpresa:
-    puntuacion_minima: 0.5
+    # Desvío RELATIVO mínimo del dato respecto al consenso para operar.
+    # 0.05 = el dato se aparta un 5% del consenso (p. ej. IPC 3,15% frente a
+    # un consenso de 3,00%). Las sorpresas macro reales se mueven en el rango
+    # 3-10% relativo; un umbral del 50% exigiría un dato histórico y dejaría
+    # al sleeve sin operar nunca — y sin alcanzar los 20 eventos que pide el
+    # criterio de paso de Fase 1. Calibrar con los datos de la demo.
+    puntuacion_minima: 0.05
     # Fuente del calendario económico. "manual" lee los eventos de
     # `eventos_programados` (suficiente para las 4 semanas de demo).
     # Un proveedor de API real se añadirá cuando se decida cuál.
