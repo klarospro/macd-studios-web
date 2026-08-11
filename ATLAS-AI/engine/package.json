@@ -11,6 +11,9 @@
     "backtest:multi": "node --import tsx src/backtest/runMultiTsmomBacktest.ts",
     "fetch:deriv": "node --env-file=../.env.local --import tsx src/scripts/fetchDerivHistory.ts",
     "cycle:daily": "node --env-file=../.env.local --import tsx src/live/dailyCycle.ts",
+    "cycle:sleeves": "node --env-file=../.env.local --import tsx src/live/sleeveCycle.ts",
+    "sonda:universo": "node --env-file=../.env.local --import tsx src/scripts/sondaUniverso.ts",
+    "sonda:volumen": "node --env-file=../.env.local --import tsx src/scripts/sondaVolumen.ts",
     "publish:live": "node --env-file=../.env.local --import tsx src/live/publishLive.ts",
     "export:account": "node --env-file=../.env.local --import tsx src/scripts/exportAccountData.ts"
   },

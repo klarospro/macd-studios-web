@@ -38,6 +38,8 @@ export type SleeveRechazo =
   | "breaker_sleeve_drawdown"
   | "limite_trades_dia"
   | "limite_trades_semana"
+  | "limite_posiciones_sleeve"
+  | "limite_posiciones_clase"
   | "reentrada_mismo_setup"
   | "solapamiento_con_otro_sleeve"
   | "spread_sin_referencia"
@@ -89,6 +91,17 @@ export interface LimitesSleeve {
   breakerDrawdownPct?: number;
   /** Riesgo por operación como fracción del capital del sleeve. */
   riesgoPorTradePct: number;
+  /** Tope de posiciones abiertas a la vez en el sleeve. */
+  posicionesMax?: number;
+  /**
+   * Tope de posiciones abiertas en la MISMA clase de activo ESMA.
+   *
+   * Existe porque el presupuesto de riesgo por sí solo no ve la correlación:
+   * corto EUR/USD, largo USD/JPY, largo USD/CHF y largo USD/CAD son la misma
+   * apuesta —largo dólar— contada cuatro veces. Cada una pasa el gate con su
+   * 0,5% y el conjunto acaba concentrado sin que ningún límite se queje.
+   */
+  posicionesMaxPorClase?: number;
 }
 
 /** Estado de cartera necesario para decidir. Todo en moneda de cuenta. */
@@ -154,8 +167,28 @@ export function breakerSleeve(
   if (limites.tradesSemanaMax !== undefined && estado.tradesSemana >= limites.tradesSemanaMax) {
     return "limite_trades_semana";
   }
+  if (limites.posicionesMax !== undefined && estado.openPositions.length >= limites.posicionesMax) {
+    return "limite_posiciones_sleeve";
+  }
 
   return undefined;
+}
+
+/**
+ * ¿Cuántas posiciones abiertas tiene ya el sleeve en la clase de activo del
+ * símbolo? Sirve para frenar la concentración por correlación.
+ */
+export function posicionesEnClase(
+  config: AtlasConfig,
+  ctx: ContextoCartera,
+  sleeve: SleeveId,
+  symbol: string,
+): number {
+  const clase = config.esma.clasePorSimbolo[symbol];
+  if (!clase) return 0;
+  return ctx.sleeves[sleeve].openPositions.filter(
+    (p) => config.esma.clasePorSimbolo[p.symbol] === clase,
+  ).length;
 }
 
 /**
@@ -197,6 +230,15 @@ export function evaluarSleeve(
   if (breakerPropio) return rechazo(breakerPropio);
 
   const estado = ctx.sleeves[signal.sleeve];
+
+  // Concentración por correlación: varias posiciones de la misma clase son,
+  // en la práctica, una sola apuesta repetida.
+  if (
+    limites.posicionesMaxPorClase !== undefined &&
+    posicionesEnClase(config, ctx, signal.sleeve, signal.symbol) >= limites.posicionesMaxPorClase
+  ) {
+    return rechazo("limite_posiciones_clase");
+  }
 
   // Un solo intento por setup: sin reentrada al mismo nivel el mismo día.
   if (signal.setupId && estado.setupsUsadosHoy.includes(signal.setupId)) {

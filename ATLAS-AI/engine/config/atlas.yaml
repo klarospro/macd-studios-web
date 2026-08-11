@@ -132,6 +132,17 @@ core:
   activo: true
   revision: semanal
 
+  limites:
+    # Es una cartera de tendencia diversificada, así que admite muchas
+    # posiciones a la vez. El tope existe para que un fallo de datos no abra
+    # los 23 instrumentos de golpe.
+    posiciones_max: 12
+    # Tope por CLASE de activo ESMA. Sin él, corto EUR/USD + largo USD/JPY +
+    # largo USD/CHF + largo USD/CAD son la misma apuesta (largo dólar) contada
+    # cuatro veces: cada una pasa el gate con su 0,5% y el conjunto queda
+    # concentrado sin que ningún límite proteste.
+    posiciones_max_por_clase: 4
+
   trend:
     activo: true
     # Señal: "ewma" (cruce 50/100/200) o "donchian" (ruptura de canal).
@@ -166,6 +177,8 @@ intradia:
   activo: true
 
   limites:
+    posiciones_max: 3
+    posiciones_max_por_clase: 2
     trades_dia_max: 3
     trades_dia_min_objetivo: 1
     trades_semana_max: 10
@@ -233,6 +246,8 @@ eventscalp:
   activo: true
 
   limites:
+    posiciones_max: 2
+    posiciones_max_por_clase: 1
     eventos_dia_max: 2
     eventos_semana_max: 5
     trades_por_evento: 1
