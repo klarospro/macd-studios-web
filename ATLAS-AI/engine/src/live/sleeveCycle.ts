@@ -24,6 +24,8 @@ import {
   rotarPeriodos,
 } from "./sleeveState";
 import { notificarEntradaSleeve, notificarSalidaSleeve } from "./telegramSleeve";
+import { publishSnapshot } from "./supabaseLive";
+import { HeldPosition } from "./state";
 
 /**
  * Ciclo en vivo de la cartera multi-sleeve. SUSTITUYE a `dailyCycle.ts`.
@@ -363,6 +365,48 @@ async function pasadaEventScalp(
   return minutosAEvento;
 }
 
+/**
+ * Publica el estado en las tablas que lee el PANEL (`equity_log` y
+ * `atlas_positions`), reutilizando `publishSnapshot` en vez de duplicarlo.
+ *
+ * Hace falta porque el panel nació leyendo esas tablas del runner anterior: sin
+ * esto, sustituir el bot lo dejaba ciego aunque el motor estuviera operando.
+ * La clave de cada posición lleva el sleeve delante (`core · frxEURUSD`) para
+ * que en el panel se vea de dónde viene cada una.
+ */
+async function publicarParaPanel(
+  adapter: DerivDemoAdapter,
+  estado: EstadoCartera,
+  equity: number,
+): Promise<void> {
+  const posiciones: Record<string, HeldPosition> = {};
+  const pnl: Record<string, { profit: number; currentSpot: number }> = {};
+
+  for (const id of SLEEVE_IDS) {
+    for (const p of estado.sleeves[id].openPositions) {
+      const clave = `${id} · ${p.symbol}`;
+      posiciones[clave] = {
+        contractId: p.id,
+        side: p.side,
+        entryPrice: p.entryPrice,
+        stopPrice: p.stopPrice,
+        size: p.size,
+        riskAmount: p.riskAmount,
+        openedAt: new Date().toISOString(),
+      };
+      if (EXECUTE) {
+        try {
+          pnl[clave] = await adapter.contractPnl(p.id);
+        } catch {
+          // Un contrato que ya no existe no debe impedir publicar el resto.
+        }
+      }
+    }
+  }
+
+  await publishSnapshot("deriv-demo", equity, posiciones, pnl).catch(() => null);
+}
+
 // ---------------------------------------------------------------------------
 async function main(): Promise<void> {
   const config = cargarConfig();
@@ -411,6 +455,7 @@ async function main(): Promise<void> {
     const abiertas = SLEEVE_IDS.map((id) => `${id} ${estado.sleeves[id].openPositions.length}`).join(" · ");
     console.log(`  Posiciones abiertas: ${abiertas}`);
 
+    await publicarParaPanel(adapter, estado, equity);
     guardarEstado(ESTADO_PATH, estado);
   } finally {
     await adapter.disconnect();
