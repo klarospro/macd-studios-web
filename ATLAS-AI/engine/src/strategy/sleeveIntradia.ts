@@ -2,14 +2,19 @@ import { atrVelas, diaUtc, minutoDeHora, minutoUtc, Vela } from "../domain/bars"
 import { SleeveSignal } from "../risk/sleeveRiskGate";
 
 /**
- * Sleeve B "Intradía" (Breakout + volumen) — horizonte diario. Tarea 3.
+ * Sleeve B "Intradía" (Breakout) — horizonte diario. Tarea 3.
  *
  * Las tres entradas comparten una condición innegociable: CONFIRMACIÓN DE
- * VOLUMEN. Sin ella no se opera, y como Deriv no publica volumen real se usa
- * el recuento de ticks como proxy (ver `domain/bars.ts`). Una ruptura sin
- * participación detrás es justo la que se deshace, y las dos estrategias
- * intradía anteriores del proyecto murieron por operar rupturas que el coste
- * se comía (27_SCALPING/02 y /03). El filtro de volumen existe para no repetirlo.
+ * FUERZA. Una ruptura sin nada detrás es justo la que se deshace, y las dos
+ * estrategias intradía anteriores del proyecto murieron operando rupturas que
+ * el coste se comía (27_SCALPING/02 y /03). Este filtro existe por eso.
+ *
+ * El diseño original pedía confirmarla con VOLUMEN. No se puede: medido contra
+ * la cuenta demo el 2026-08-11 (`npm run sonda:volumen`), Deriv emite ticks a
+ * cadencia fija de 1 por segundo y EUR/USD, oro y BTC devuelven estadísticas
+ * idénticas —media 59/min, máximo exactamente 60—. El recuento de ticks no
+ * contiene información de participación. Se sustituye por EXPANSIÓN DE RANGO,
+ * que mide lo mismo con un dato que en Deriv sí es real.
  *
  * Módulo puro: detecta setups sobre un array de velas. Los topes de operaciones,
  * los breakers y el sizing los aplica `sleeveRiskGate`.
@@ -31,7 +36,7 @@ export interface IntradiaParams {
   minutosRangoApertura: number;
   sesiones: Record<Sesion, VentanaSesion>;
   sesionesActivas: Sesion[];
-  volumen: { multiploMinimo: number; ventanaMediaDias: number; muestrasMinimas: number };
+  fuerza: { multiploMinimo: number; ventanaMediaDias: number; muestrasMinimas: number };
   entradas: {
     orb: boolean;
     rangoPrevio: boolean;
@@ -54,13 +59,19 @@ export function minutosPorVela(velas: Vela[]): number | null {
   return delta > 0 ? delta : null;
 }
 
+/** Recorrido de la vela: alto menos bajo. */
+export function recorrido(vela: Vela): number {
+  return vela.high - vela.low;
+}
+
 /**
- * Media del volumen por ticks en la MISMA hora del día, sobre las jornadas
- * anteriores. Comparar contra la media global sería un sesgo grosero: la
- * apertura de Londres siempre tiene más ticks que la madrugada asiática, así
- * que cualquier ruptura matinal "confirmaría" volumen sin significar nada.
+ * Recorrido medio en la MISMA hora del día, sobre las jornadas anteriores.
+ *
+ * Comparar contra la media global sería un sesgo grosero: la apertura de
+ * Londres siempre se mueve más que la madrugada asiática, así que cualquier
+ * ruptura matinal "confirmaría" fuerza sin significar nada.
  */
-export function mediaVolumenMismaHora(
+export function mediaRecorridoMismaHora(
   velas: Vela[],
   t: number,
   ventanaDias: number,
@@ -81,8 +92,7 @@ export function mediaVolumenMismaHora(
     if (dia <= diaMinimo) break;
     if (dia === diaActual) continue; // solo jornadas ANTERIORES
     if (minutoUtc(vela.epoch) !== minutoObjetivo) continue;
-    if (vela.ticks === undefined) continue;
-    suma += vela.ticks;
+    suma += recorrido(vela);
     muestras++;
   }
 
@@ -90,17 +100,23 @@ export function mediaVolumenMismaHora(
 }
 
 /**
- * ¿La vela `t` tiene volumen suficiente para confirmar una ruptura?
- * Sin ticks o sin histórico bastante, devuelve false (fallo seguro).
+ * ¿La vela `t` rompe con fuerza suficiente?
+ *
+ * Sustituye a la confirmación de volumen del diseño original. Medido contra la
+ * cuenta demo el 2026-08-11: Deriv emite ticks a cadencia FIJA de 1/segundo
+ * —EUR/USD, oro y BTC dan estadísticas idénticas—, así que el recuento de
+ * ticks no informa de participación y el filtro de volumen nunca dispararía.
+ * La expansión de rango responde a la misma pregunta con un dato que sí es
+ * real. Sin histórico bastante devuelve false (fallo seguro).
  */
-export function confirmaVolumen(velas: Vela[], t: number, params: IntradiaParams): boolean {
+export function confirmaFuerza(velas: Vela[], t: number, params: IntradiaParams): boolean {
   const vela = velas[t];
-  if (!vela || vela.ticks === undefined) return false;
+  if (!vela) return false;
 
-  const { media, muestras } = mediaVolumenMismaHora(velas, t, params.volumen.ventanaMediaDias);
-  if (muestras < params.volumen.muestrasMinimas || !(media > 0)) return false;
+  const { media, muestras } = mediaRecorridoMismaHora(velas, t, params.fuerza.ventanaMediaDias);
+  if (muestras < params.fuerza.muestrasMinimas || !(media > 0)) return false;
 
-  return vela.ticks > media * params.volumen.multiploMinimo;
+  return recorrido(vela) > media * params.fuerza.multiploMinimo;
 }
 
 /** ¿Está la vela dentro de la ventana horaria de la sesión? */
@@ -297,7 +313,7 @@ export function senalIntradia(
   if (!actual) return null;
 
   if (minutosAEvento !== undefined && Math.abs(minutosAEvento) <= params.exclusionEventosMin) return null;
-  if (!confirmaVolumen(velas, t, params)) return null;
+  if (!confirmaFuerza(velas, t, params)) return null;
 
   const setup =
     detectarOrb(velas, t, params) ??
@@ -360,10 +376,10 @@ export function paramsIntradiaDesdeConfig(
       minutosRangoApertura: orb.minutos_rango ?? 30,
       sesiones: { londres: ventana("londres"), ny: ventana("ny") },
       sesionesActivas: (orb.sesiones ?? ["londres", "ny"]) as Sesion[],
-      volumen: {
-        multiploMinimo: bloque.volumen?.multiplo_minimo ?? 1.5,
-        ventanaMediaDias: bloque.volumen?.ventana_media_dias ?? 20,
-        muestrasMinimas: bloque.volumen?.muestras_minimas ?? 10,
+      fuerza: {
+        multiploMinimo: bloque.fuerza?.multiplo_minimo ?? 1.5,
+        ventanaMediaDias: bloque.fuerza?.ventana_media_dias ?? 20,
+        muestrasMinimas: bloque.fuerza?.muestras_minimas ?? 10,
       },
       entradas: {
         orb: orb.activo === true,

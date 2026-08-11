@@ -67,7 +67,18 @@ esma:
   # Clasificación de cada instrumento operable. La clave es el símbolo de Deriv.
   # Si un símbolo NO aparece aquí, el gate RECHAZA la orden (fallo seguro:
   # nunca se asume un apalancamiento permisivo por defecto).
+  #
+  # Verificado contra la cuenta demo VRTC4942159 el 2026-08-11 con
+  # `npm run sonda:universo`: los 23 tienen histórico diario real (~213 barras
+  # en forex e índices, que son solo días hábiles; 300 en cripto).
+  #
+  # [!] CORRIGE UNA SUPOSICIÓN DEL PROYECTO: los índices bursátiles SÍ están
+  #     disponibles por la API nativa de Deriv. La nota previa de 27_SCALPING
+  #     ("Nasdaq/US30 NO disponibles, requieren MT5") ya no se sostiene, y con
+  #     ella cae el bloqueante de montar una VPS Windows para operar índices.
+  #     No disponibles: WTI (frxWTIUSD) y gas natural (frxNGSUSD). Brent sí.
   clase_por_simbolo:
+    # FX mayores
     frxEURUSD: fx_mayor
     frxGBPUSD: fx_mayor
     frxUSDJPY: fx_mayor
@@ -75,12 +86,27 @@ esma:
     frxAUDUSD: fx_mayor
     frxUSDCAD: fx_mayor
     frxNZDUSD: fx_mayor
-    frxEURGBP: fx_mayor
-    frxEURJPY: fx_mayor
+    # FX cruces
+    frxEURGBP: fx_menor
+    frxEURJPY: fx_menor
+    frxGBPJPY: fx_menor
+    # Metales
     frxXAUUSD: oro
     frxXAGUSD: materia_prima
+    frxXPTUSD: materia_prima
+    frxXPDUSD: materia_prima
+    # Energía
+    frxBROUSD: materia_prima
+    # Cripto
     cryBTCUSD: cripto
     cryETHUSD: cripto
+    # Índices bursátiles
+    OTC_SPC: indice_mayor
+    OTC_NDX: indice_mayor
+    OTC_DJI: indice_mayor
+    OTC_GDAXI: indice_mayor
+    OTC_FTSE: indice_mayor
+    OTC_N225: indice_menor
 
 # -----------------------------------------------------------------------------
 # TAREA 5 — Riesgo común a los tres sleeves
@@ -148,9 +174,23 @@ intradia:
     # Un solo intento por setup; sin reentrada al mismo nivel el mismo día.
     reentrada_mismo_setup: false
 
-  # Confirmación de volumen (proxy por ticks — Deriv no publica volumen real).
-  volumen:
-    multiplo_minimo: 1.5 # volumen > 1.5x la media de la MISMA hora
+  # Confirmación de FUERZA de la ruptura.
+  #
+  # [!] SUSTITUYE A LA CONFIRMACIÓN DE VOLUMEN, y no por comodidad. Medido
+  #     contra la cuenta demo el 2026-08-11 (`npm run sonda:volumen`): Deriv
+  #     emite ticks a CADENCIA FIJA de 1 por segundo. EUR/USD, oro y BTC dan
+  #     estadísticas idénticas (media 59 ticks/min, máx exactamente 60, misma
+  #     dispersión). El recuento de ticks no contiene información sobre
+  #     participación, así que "volumen > 1.5x la media" nunca dispararía.
+  #
+  #     Se mide en su lugar la EXPANSIÓN DE RANGO: que el recorrido de la vela
+  #     que rompe supere 1.5x el recorrido medio de esa MISMA hora en jornadas
+  #     anteriores. Responde a la misma pregunta que el filtro de volumen
+  #     —¿hay fuerza real detrás de esta ruptura?— con un dato que en Deriv sí
+  #     es real. Comparar contra la misma hora sigue siendo imprescindible: la
+  #     apertura de Londres siempre tiene más recorrido que la madrugada.
+  fuerza:
+    multiplo_minimo: 1.5 # recorrido > 1.5x el medio de la MISMA hora
     ventana_media_dias: 20 # días de histórico para esa media horaria
     muestras_minimas: 10 # con menos histórico, no se opera (fallo seguro)
 

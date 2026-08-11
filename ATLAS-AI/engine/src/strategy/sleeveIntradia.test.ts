@@ -3,11 +3,11 @@ import { cargarConfig } from "../config/sleeveConfig";
 import { Vela } from "../domain/bars";
 import {
   atrCreciente,
-  confirmaVolumen,
+  confirmaFuerza,
   detectarOrb,
   enSesion,
   IntradiaParams,
-  mediaVolumenMismaHora,
+  mediaRecorridoMismaHora,
   minutosPorVela,
   objetivoIntradia,
   paramsIntradiaDesdeConfig,
@@ -26,7 +26,7 @@ const PARAMS: IntradiaParams = {
   minutosRangoApertura: 30,
   sesiones: { londres: { abre: 420, cierra: 960 }, ny: { abre: 720, cierra: 1260 } },
   sesionesActivas: ["londres"],
-  volumen: { multiploMinimo: 1.5, ventanaMediaDias: 20, muestrasMinimas: 10 },
+  fuerza: { multiploMinimo: 1.5, ventanaMediaDias: 20, muestrasMinimas: 10 },
   entradas: { orb: true, rangoPrevio: false, breakoutHorario: false },
   rangoPrevio: { exigirRetest: true, retestToleranciaAtr: 0.25 },
   breakoutHorario: { ventanaHoras: 4, exigirAtrCreciente: true },
@@ -74,58 +74,69 @@ describe("sleeveIntradia · utilidades", () => {
   });
 });
 
-describe("sleeveIntradia · volumen por ticks", () => {
+/** Ensancha el recorrido de una vela sin mover su cierre. */
+function ensanchar(vela: Vela, recorridoTotal: number): void {
+  vela.high = vela.close + recorridoTotal / 2;
+  vela.low = vela.close - recorridoTotal / 2;
+}
+
+describe("sleeveIntradia · confirmación de fuerza (expansión de rango)", () => {
+  // Las jornadas base tienen recorrido 0.001 en todas las velas.
+  const BASE = 0.001;
+
   it("promedia solo la MISMA hora de jornadas anteriores", () => {
-    const velas = jornadas(5, 1.1, 100);
-    // Subimos el volumen de las 08:00 de los días previos: solo eso debe contar.
-    for (let d = 0; d < 4; d++) velas[idx(d, 480)]!.ticks = 400;
-    const { media, muestras } = mediaVolumenMismaHora(velas, idx(4, 480), 20);
+    const velas = jornadas(5);
+    for (let d = 0; d < 4; d++) ensanchar(velas[idx(d, 480)]!, 0.004);
+    const { media, muestras } = mediaRecorridoMismaHora(velas, idx(4, 480), 20);
     expect(muestras).toBe(4);
-    expect(media).toBe(400);
+    expect(media).toBeCloseTo(0.004, 9);
   });
 
-  it("no mezcla el volumen de otras horas del día", () => {
-    const velas = jornadas(5, 1.1, 100);
-    for (let d = 0; d < 4; d++) velas[idx(d, 180)]!.ticks = 9_999; // madrugada
-    const { media } = mediaVolumenMismaHora(velas, idx(4, 480), 20);
-    expect(media).toBe(100); // la media de las 08:00 sigue intacta
+  it("no mezcla el recorrido de otras horas del día", () => {
+    const velas = jornadas(5);
+    for (let d = 0; d < 4; d++) ensanchar(velas[idx(d, 180)]!, 0.05); // madrugada
+    const { media } = mediaRecorridoMismaHora(velas, idx(4, 480), 20);
+    expect(media).toBeCloseTo(BASE, 9); // la media de las 08:00 sigue intacta
   });
 
   it("excluye las velas de la jornada en curso", () => {
-    const velas = jornadas(3, 1.1, 100);
-    velas[idx(2, 475)]!.ticks = 5_000; // misma jornada, otra vela
-    const { muestras } = mediaVolumenMismaHora(velas, idx(2, 480), 20);
+    const velas = jornadas(3);
+    ensanchar(velas[idx(2, 475)]!, 0.05); // misma jornada, otra vela
+    const { muestras } = mediaRecorridoMismaHora(velas, idx(2, 480), 20);
     expect(muestras).toBe(2); // solo los dos días previos
   });
 
-  it("confirma cuando el volumen supera 1,5x la media de esa hora", () => {
-    const velas = jornadas(15, 1.1, 100);
+  it("confirma cuando el recorrido supera 1,5x la media de esa hora", () => {
+    const velas = jornadas(15);
     const t = idx(14, 480);
-    velas[t]!.ticks = 151;
-    expect(confirmaVolumen(velas, t, PARAMS)).toBe(true);
+    ensanchar(velas[t]!, BASE * 1.51);
+    expect(confirmaFuerza(velas, t, PARAMS)).toBe(true);
   });
 
-  it("NO confirma justo en el umbral ni por debajo", () => {
-    const velas = jornadas(15, 1.1, 100);
+  it("NO confirma por debajo del umbral", () => {
+    // Se prueba estrictamente por debajo: el recorrido sale de `high - low`
+    // sobre precios como 1,1, así que comparar justo en 1,5x exacto mide el
+    // error de coma flotante, no la regla.
+    const velas = jornadas(15);
     const t = idx(14, 480);
-    velas[t]!.ticks = 150;
-    expect(confirmaVolumen(velas, t, PARAMS)).toBe(false);
-    velas[t]!.ticks = 120;
-    expect(confirmaVolumen(velas, t, PARAMS)).toBe(false);
+    ensanchar(velas[t]!, BASE * 1.49);
+    expect(confirmaFuerza(velas, t, PARAMS)).toBe(false);
+    ensanchar(velas[t]!, BASE * 1.2);
+    expect(confirmaFuerza(velas, t, PARAMS)).toBe(false);
   });
 
   it("NO confirma sin histórico suficiente: fallo seguro", () => {
-    const velas = jornadas(3, 1.1, 100); // solo 2 jornadas previas < 10 muestras
+    const velas = jornadas(3); // solo 2 jornadas previas < 10 muestras
     const t = idx(2, 480);
-    velas[t]!.ticks = 9_999;
-    expect(confirmaVolumen(velas, t, PARAMS)).toBe(false);
+    ensanchar(velas[t]!, 0.5);
+    expect(confirmaFuerza(velas, t, PARAMS)).toBe(false);
   });
 
-  it("NO confirma si la vela no trae recuento de ticks", () => {
-    const velas = jornadas(15, 1.1, 100);
+  it("una vela sin recorrido nunca confirma", () => {
+    const velas = jornadas(15);
     const t = idx(14, 480);
-    velas[t]!.ticks = undefined;
-    expect(confirmaVolumen(velas, t, PARAMS)).toBe(false);
+    ensanchar(velas[t]!, 0);
+    expect(confirmaFuerza(velas, t, PARAMS)).toBe(false);
   });
 });
 
@@ -178,11 +189,10 @@ describe("sleeveIntradia · rangos", () => {
 describe("sleeveIntradia · ORB", () => {
   /** Serie con volumen y ATR válidos, y una ruptura al alza del rango de apertura. */
   function conRupturaAlza(): { velas: Vela[]; t: number } {
-    const velas = jornadas(15, 1.1, 100);
+    const velas = jornadas(15);
     const t = idx(14, 480); // 08:00, dentro de Londres y tras la ventana 07:00-07:30
-    velas[t]!.ticks = 300;
     velas[t]!.close = 1.2; // por encima del alto del rango de apertura
-    velas[t]!.high = 1.21;
+    ensanchar(velas[t]!, 0.01); // recorrido 10x la media de esa hora
     return { velas, t };
   }
 
@@ -195,12 +205,12 @@ describe("sleeveIntradia · ORB", () => {
   });
 
   it("no detecta nada dentro del rango de apertura", () => {
-    const velas = jornadas(15, 1.1, 100);
+    const velas = jornadas(15);
     expect(detectarOrb(velas, idx(14, 480), PARAMS)).toBeNull();
   });
 
   it("no detecta fuera de la ventana de sesión", () => {
-    const velas = jornadas(15, 1.1, 100);
+    const velas = jornadas(15);
     const t = idx(14, 1200); // 20:00, Londres ya cerró
     velas[t]!.close = 1.2;
     expect(detectarOrb(velas, t, PARAMS)).toBeNull();
@@ -216,9 +226,9 @@ describe("sleeveIntradia · ORB", () => {
     expect(signal!.setupId).toMatch(/^orb:frxEURUSD:/);
   });
 
-  it("NO produce señal si el volumen no confirma, aunque el precio rompa", () => {
+  it("NO produce señal si la ruptura no tiene fuerza, aunque el precio rompa", () => {
     const { velas, t } = conRupturaAlza();
-    velas[t]!.ticks = 100; // igual a la media
+    ensanchar(velas[t]!, 0.001); // recorrido igual a la media de esa hora
     expect(senalIntradia(velas, t, PARAMS)).toBeNull();
   });
 
@@ -258,7 +268,7 @@ describe("sleeveIntradia · lectura del YAML", () => {
       "fx",
     );
     expect(activo).toBe(true);
-    expect(params.volumen.multiploMinimo).toBe(1.5);
+    expect(params.fuerza.multiploMinimo).toBe(1.5);
     expect(params.sesiones.londres.abre).toBe(420); // 07:00 UTC
     expect(params.exclusionEventosMin).toBe(15);
     expect(limites.trades_dia_max).toBe(3);

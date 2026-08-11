@@ -6,6 +6,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "smoke:deriv": "node --env-file=../.env.local --import tsx src/scripts/derivSmoke.ts",
+    "sonda:deriv": "node --env-file=../.env.local --import tsx src/scripts/sondaDeriv.ts",
     "backtest:tsmom": "node --import tsx src/backtest/runTsmomBacktest.ts",
     "backtest:multi": "node --import tsx src/backtest/runMultiTsmomBacktest.ts",
     "fetch:deriv": "node --env-file=../.env.local --import tsx src/scripts/fetchDerivHistory.ts",
