@@ -207,7 +207,12 @@ async function pasadaCore(
   // El Core trabaja sobre velas diarias con horizonte semanal: una revisión al
   // día basta y evita 23 peticiones por minuto para releer barras idénticas.
   if (estado.ultimaPasadaCore === fecha) return;
-  estado.ultimaPasadaCore = fecha;
+
+  // El día NO se marca aquí sino al final, y solo si el broker llegó a
+  // atendernos. Marcarlo antes hacía que una pasada caída en la ventana de
+  // rollover —cuando Deriv suspende Multipliers y rechaza todo— consumiera la
+  // revisión del día entero y dejara al Core parado hasta mañana.
+  let brokerRespondio = false;
 
   for (const symbol of instrumentosDe(config, "core")) {
     try {
@@ -232,9 +237,21 @@ async function pasadaCore(
         continue;
       }
       await abrir(adapter, estado, decision, at, symbol);
+      brokerRespondio = true;
     } catch (error) {
-      console.log(`  core        ${symbol}: ${error instanceof Error ? error.message : String(error)} (se salta)`);
+      const mensaje = error instanceof Error ? error.message : String(error);
+      // "temporarily unavailable" = mercado cerrado ahora: NO gasta la revisión
+      // del día. "not offered" = permanente: ese símbolo no admite Multipliers
+      // y no tiene sentido reintentarlo, así que no bloquea el resto.
+      if (!/temporarily unavailable|market is closed/i.test(mensaje)) brokerRespondio = true;
+      console.log(`  core        ${symbol}: ${mensaje} (se salta)`);
     }
+  }
+
+  if (brokerRespondio) {
+    estado.ultimaPasadaCore = fecha;
+  } else {
+    console.log("  core        mercados cerrados: se reintentará en la próxima pasada");
   }
 }
 
