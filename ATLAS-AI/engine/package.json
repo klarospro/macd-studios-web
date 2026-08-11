@@ -14,7 +14,8 @@
     "export:account": "node --env-file=../.env.local --import tsx src/scripts/exportAccountData.ts"
   },
   "dependencies": {
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

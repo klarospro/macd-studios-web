@@ -1,0 +1,263 @@
+# =============================================================================
+# ATLAS — configuración de la cartera multi-sleeve
+# =============================================================================
+# ÚNICA fuente de parámetros ajustables. El código NO debe contener números de
+# negocio: si hay que tocar un umbral, se toca aquí. Ver 27_SCALPING/04.
+#
+# Cambiar este fichero NO requiere recompilar; el loader valida al arrancar y
+# aborta con un error explícito si algo está fuera de rango (sleeveConfig.ts).
+# =============================================================================
+
+version: 1
+
+# Modo de operación. "demo" es el único permitido en Fase 1.
+# Pasar a "real" exige aprobación explícita + revisión legal (restricción dura).
+modo: demo
+
+# -----------------------------------------------------------------------------
+# TAREA 1 — Asignación de margen entre sleeves
+# -----------------------------------------------------------------------------
+cartera:
+  # Reparto del margen. Debe sumar exactamente 1.0 (el loader lo verifica).
+  margen_por_sleeve:
+    core: 0.40
+    intradia: 0.30
+    eventscalp: 0.30
+
+  # El margen de un sleeve en reposo NO se reasigna: queda como colchón.
+  # Poner esto a `true` violaría la Tarea 1; el loader lo rechaza.
+  reasignar_margen_ocioso: false
+
+  # Prohibido apalancar la cartera para aprovechar margen libre.
+  apalancar_margen_libre: false
+
+  # Regla de solapamiento: nunca dos sleeves con posición en el MISMO
+  # instrumento y la MISMA dirección. Si ocurre, se cierra la del sleeve
+  # de menor prioridad.
+  #
+  # [!] LECTURA DEL PROMPT ("orden: C > B > A"): se interpreta como el orden en
+  #     que se CIERRAN — EventScalp primero, Core el último y por tanto el más
+  #     protegido. Es la lectura económicamente sensata (no se sacrifica la
+  #     posición estratégica por un scalp de evento). Si la intención era la
+  #     contraria, invertir esta lista es el único cambio necesario.
+  prioridad_cierre: [eventscalp, intradia, core]
+
+  # Circuit breakers de CARTERA (Tarea 5). Fracción sobre el equity total.
+  breakers:
+    perdida_diaria_pct: 0.02 # -2% en el día -> pausa TODA la cartera hasta mañana
+    perdida_semanal_pct: 0.05 # -5% en la semana -> pausa semanal
+
+# -----------------------------------------------------------------------------
+# TAREA 5 — Límites regulatorios ESMA (España)
+# -----------------------------------------------------------------------------
+# Apalancamiento máximo por clase de activo. Se verifica el NOCIONAL de CADA
+# orden contra el capital del sleeve. Los dos primeros valores vienen fijados
+# por el prompt; el resto son los tramos publicados por ESMA y quedan aquí
+# como ajustables porque el Sleeve A opera índices, petróleo y gas.
+esma:
+  apalancamiento_max:
+    fx_mayor: 30 # 1:30 — divisas mayores (dato del prompt)
+    fx_menor: 20 # 1:20 — divisas no mayores
+    oro: 20 # 1:20 — oro (dato del prompt)
+    indice_mayor: 20 # 1:20 — índices bursátiles principales
+    indice_menor: 10 # 1:10 — índices secundarios
+    materia_prima: 10 # 1:10 — materias primas distintas del oro (petróleo, gas)
+    cripto: 2 # 1:2  — criptomonedas
+
+  # Clasificación de cada instrumento operable. La clave es el símbolo de Deriv.
+  # Si un símbolo NO aparece aquí, el gate RECHAZA la orden (fallo seguro:
+  # nunca se asume un apalancamiento permisivo por defecto).
+  clase_por_simbolo:
+    frxEURUSD: fx_mayor
+    frxGBPUSD: fx_mayor
+    frxUSDJPY: fx_mayor
+    frxUSDCHF: fx_mayor
+    frxAUDUSD: fx_mayor
+    frxUSDCAD: fx_mayor
+    frxNZDUSD: fx_mayor
+    frxEURGBP: fx_mayor
+    frxEURJPY: fx_mayor
+    frxXAUUSD: oro
+    frxXAGUSD: materia_prima
+    cryBTCUSD: cripto
+    cryETHUSD: cripto
+
+# -----------------------------------------------------------------------------
+# TAREA 5 — Riesgo común a los tres sleeves
+# -----------------------------------------------------------------------------
+riesgo:
+  # Riesgo por operación como fracción del CAPITAL DEL SLEEVE (no del total).
+  riesgo_por_trade_pct:
+    min: 0.0025 # 0.25%
+    max: 0.005 # 0.50%
+
+  # Rechazar cualquier señal si el spread supera este múltiplo del spread
+  # normal del activo. Aplica a los tres sleeves.
+  spread_max_x_normal: 1.5
+
+  # Nº de observaciones de spread necesarias para considerar fiable la línea
+  # base. Con menos, el gate rechaza por falta de referencia (fallo seguro).
+  spread_muestras_minimas: 30
+
+# -----------------------------------------------------------------------------
+# TAREA 2 — Sleeve A "Core" (Trend + Carry), horizonte semanal
+# -----------------------------------------------------------------------------
+core:
+  activo: true
+  revision: semanal
+
+  trend:
+    activo: true
+    # Señal: "ewma" (cruce 50/100/200) o "donchian" (ruptura de canal).
+    metodo: ewma
+    ewma_periodos: [50, 100, 200]
+    donchian_periodo: 100
+    atr_periodo: 14
+    atr_mult_stop: 2
+
+  carry:
+    # [!] DESACTIVADO: Deriv no publica diferenciales de swap por API y la
+    #     investigación previa lo dejó "sin confirmar" (00_INDICE_MAESTRO).
+    #     No se opera carry sobre datos inventados. Activar solo cuando exista
+    #     una fuente de swaps verificada.
+    activo: false
+    pares_long: 3
+    pares_short: 3
+    rebalanceo: mensual
+
+  # Vol-target 10% anualizado: si la volatilidad realizada supera el objetivo,
+  # se reduce el tamaño proporcionalmente (nunca se aumenta por encima de 1x).
+  vol_target:
+    activo: true
+    objetivo_anual: 0.10
+    ventana_dias: 60
+    escala_maxima: 1.0
+
+# -----------------------------------------------------------------------------
+# TAREA 3 — Sleeve B "Intradía" (Breakout + volumen), horizonte diario
+# -----------------------------------------------------------------------------
+intradia:
+  activo: true
+
+  limites:
+    trades_dia_max: 3
+    trades_dia_min_objetivo: 1
+    trades_semana_max: 10
+    # Si los DOS primeros trades del día son perdedores, el sleeve para el día.
+    parar_tras_perdidas_iniciales: 2
+    # Un solo intento por setup; sin reentrada al mismo nivel el mismo día.
+    reentrada_mismo_setup: false
+
+  # Confirmación de volumen (proxy por ticks — Deriv no publica volumen real).
+  volumen:
+    multiplo_minimo: 1.5 # volumen > 1.5x la media de la MISMA hora
+    ventana_media_dias: 20 # días de histórico para esa media horaria
+    muestras_minimas: 10 # con menos histórico, no se opera (fallo seguro)
+
+  entradas:
+    # 1) ORB — ruptura del rango de apertura
+    orb:
+      activo: true
+      minutos_rango: 30 # rango de apertura: primeros 15-30 min
+      sesiones: [londres, ny]
+    # 2) Ruptura del rango de la sesión previa, con retest del nivel roto
+    rango_previo:
+      activo: true
+      exigir_retest: true
+      retest_tolerancia_atr: 0.25
+    # 3) Breakout de máximos/mínimos de 1-4 h en activos con ATR creciente
+    breakout_horario:
+      activo: true
+      ventana_horas: 4
+      exigir_atr_creciente: true
+
+  salidas:
+    stop_atr_min: 0.5
+    stop_atr_max: 1.0
+    # TP >= 0.8x el stop medio para que la expectancy sea positiva con el
+    # win rate de diseño (65-75%). El win rate es CONSECUENCIA, no objetivo.
+    tp_x_stop: 1.0
+
+  # No operar en los ±N minutos alrededor de un evento de alto impacto:
+  # ese territorio es del Sleeve C.
+  exclusion_eventos_min: 15
+
+  sesiones:
+    londres: { abre: "07:00", cierra: "16:00" } # UTC
+    ny: { abre: "12:00", cierra: "21:00" } # UTC
+
+# -----------------------------------------------------------------------------
+# TAREA 4 — Sleeve C "EventScalp" (Noticias macro)
+# -----------------------------------------------------------------------------
+eventscalp:
+  activo: true
+
+  limites:
+    eventos_dia_max: 2
+    eventos_semana_max: 5
+    trades_por_evento: 1
+    # Si coinciden dos eventos de alto impacto, no operar ninguno.
+    no_operar_si_coinciden: true
+    coincidencia_ventana_min: 30
+    # Breaker propio: -2% del capital del sleeve -> para.
+    breaker_perdida_sleeve_pct: 0.02
+
+  # Solo eventos de alto impacto (3 estrellas). Cualquier otro se ignora.
+  eventos_permitidos: [CPI, NFP, FOMC, ECB, BOE, PIB, PMI_FLASH]
+  impacto_minimo: 3
+
+  entrada:
+    # Ventana de entrada tras la publicación.
+    espera_min_seg: 60
+    espera_max_seg: 120
+    # Condición 1: el spread volvió a <= 1.5x el normal (usa riesgo.spread_max_x_normal)
+    # Condición 2: el momentum confirma la dirección en los primeros 15-30 s.
+    momentum_ventana_seg: 30
+    momentum_min_atr: 0.3
+
+  salidas:
+    stop_atr: 0.5
+    tp_r: 1.2
+
+  # Puntuación de la sorpresa (actual vs consenso). La IA PUNTÚA; el motor
+  # DECIDE con estas reglas. La IA nunca opera sola.
+  sorpresa:
+    puntuacion_minima: 0.5
+    # Fuente del calendario económico. "manual" lee los eventos de
+    # `eventos_programados` (suficiente para las 4 semanas de demo).
+    # Un proveedor de API real se añadirá cuando se decida cuál.
+    fuente: manual
+    eventos_programados: []
+
+# -----------------------------------------------------------------------------
+# TAREA 7 — Modo demo y criterios de paso (Fase 1)
+# -----------------------------------------------------------------------------
+fase1:
+  semanas_demo: 4
+  criterios:
+    core:
+      expectancy_min: 0 # > 0 tras costes
+      drawdown_max_cartera: 0.10
+    intradia:
+      expectancy_min: 0
+      profit_factor_min: 1.3
+      trades_minimos: 40
+      drawdown_max_cartera: 0.10
+    eventscalp:
+      expectancy_min: 0
+      profit_factor_min: 1.3
+      eventos_minimos: 20
+      drawdown_max_cartera: 0.10
+
+# -----------------------------------------------------------------------------
+# TAREA 6 — Auditoría y comunicación
+# -----------------------------------------------------------------------------
+auditoria:
+  tabla_operaciones: atlas_sleeve_trades
+  tabla_resumen: atlas_sleeve_weekly
+  notificar_telegram: true
+  # Resumen semanal automático (día de la semana en UTC, 1 = lunes).
+  resumen_semanal:
+    activo: true
+    dia_semana: 1
+    hora_utc: "06:00"

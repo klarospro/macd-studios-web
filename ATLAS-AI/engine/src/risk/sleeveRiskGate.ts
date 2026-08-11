@@ -1,0 +1,270 @@
+import { AtlasConfig, SleeveId } from "../config/sleeveConfig";
+import { Order, Signal } from "../domain/types";
+import {
+  CarteraSleeves,
+  capitalDeSleeve,
+  crearIaSolapamiento,
+  presupuestoDisponible,
+  riesgoAbierto,
+} from "../portfolio/sleeveAllocator";
+import { sizeMaximoEsma, verificarEsma } from "./esma";
+
+/**
+ * RiskGate compartido por los tres sleeves (Tarea 5, 27_SCALPING/04).
+ *
+ * Reutiliza la filosofía del `riskGate.ts` original —decisión tipada, sizing
+ * derivado de la distancia al stop, rechazo con motivo auditable— pero cambia
+ * tres cosas que el diseño multi-sleeve exige:
+ *
+ *   1. El sizing se calcula sobre el CAPITAL DEL SLEEVE, no sobre el equity de
+ *      la cuenta. Un sleeve al 30% del margen no puede arriesgar como si
+ *      dispusiera del 100%.
+ *   2. Se comprueba el NOCIONAL contra el apalancamiento ESMA en cada orden.
+ *   3. Los breakers son de dos niveles: cartera (2% día / 5% semana, paran
+ *      TODO) y sleeve (pérdidas consecutivas en B, drawdown propio en C).
+ *
+ * El orden de las comprobaciones es intencionado: primero lo que para la
+ * cartera entera, luego lo que para el sleeve, y solo al final lo que depende
+ * de la señal concreta. Así el motivo del rechazo que se audita es siempre la
+ * causa más general, no un síntoma.
+ */
+
+export type SleeveRechazo =
+  | "modo_no_demo"
+  | "breaker_cartera_diario"
+  | "breaker_cartera_semanal"
+  | "sleeve_pausado"
+  | "breaker_sleeve_perdidas_consecutivas"
+  | "breaker_sleeve_drawdown"
+  | "limite_trades_dia"
+  | "limite_trades_semana"
+  | "reentrada_mismo_setup"
+  | "solapamiento_con_otro_sleeve"
+  | "spread_sin_referencia"
+  | "spread_excesivo"
+  | "stop_invalido"
+  | "presupuesto_sleeve_agotado"
+  | "esma_simbolo_sin_clasificar"
+  | "esma_apalancamiento_excedido"
+  | "size_no_positivo";
+
+/** Señal enriquecida con lo que el gate multi-sleeve necesita saber. */
+export interface SleeveSignal extends Signal {
+  sleeve: SleeveId;
+  /**
+   * Identifica el setup concreto (p. ej. `orb:frxEURUSD:londres`). Dos señales
+   * con el mismo `setupId` en el mismo día son una reentrada y se rechazan.
+   */
+  setupId?: string;
+  /** Spread actual del activo y su línea base, para la regla de 1.5x. */
+  spreadActual?: number;
+  spreadNormal?: number;
+  spreadMuestras?: number;
+  /**
+   * Escala de vol-target (0..1) que el Sleeve A aplica cuando la volatilidad
+   * realizada supera el objetivo. Multiplica el riesgo, nunca lo amplifica.
+   */
+  escalaVolTarget?: number;
+}
+
+/** Orden aprobada, etiquetada con su sleeve y con el nocional ya verificado. */
+export interface SleeveOrder extends Order {
+  sleeve: SleeveId;
+  nocional: number;
+  apalancamientoUsado: number;
+  setupId?: string;
+}
+
+export type SleeveDecision =
+  | { approved: true; order: SleeveOrder }
+  | { approved: false; reason: SleeveRechazo };
+
+/** Topes operativos de un sleeve, ya normalizados desde el YAML. */
+export interface LimitesSleeve {
+  tradesDiaMax?: number;
+  tradesSemanaMax?: number;
+  /** Para el sleeve tras N pérdidas consecutivas en el día (Sleeve B: 2). */
+  pararTrasPerdidasConsecutivas?: number;
+  /** Breaker de drawdown propio como fracción del capital del sleeve (Sleeve C: 2%). */
+  breakerDrawdownPct?: number;
+  /** Riesgo por operación como fracción del capital del sleeve. */
+  riesgoPorTradePct: number;
+}
+
+/** Estado de cartera necesario para decidir. Todo en moneda de cuenta. */
+export interface ContextoCartera {
+  equityTotal: number;
+  /** P&L de la cartera en el día y en la semana (negativo = pérdida). */
+  pnlDiaCartera: number;
+  pnlSemanaCartera: number;
+  sleeves: CarteraSleeves;
+  /** Fecha ISO (YYYY-MM-DD) para evaluar pausas vigentes. */
+  fecha: string;
+}
+
+function rechazo(reason: SleeveRechazo): SleeveDecision {
+  return { approved: false, reason };
+}
+
+/**
+ * ¿Ha saltado un breaker de CARTERA? Se comprueba antes que nada porque para
+ * los tres sleeves a la vez, y ninguna señal individual puede sobreponerse.
+ */
+export function breakerCartera(config: AtlasConfig, ctx: ContextoCartera): SleeveRechazo | undefined {
+  if (!(ctx.equityTotal > 0)) return "breaker_cartera_diario";
+  const { perdidaDiariaPct, perdidaSemanalPct } = config.cartera.breakers;
+
+  const perdidaDia = -ctx.pnlDiaCartera / ctx.equityTotal;
+  if (perdidaDia >= perdidaDiariaPct) return "breaker_cartera_diario";
+
+  const perdidaSemana = -ctx.pnlSemanaCartera / ctx.equityTotal;
+  if (perdidaSemana >= perdidaSemanalPct) return "breaker_cartera_semanal";
+
+  return undefined;
+}
+
+/** ¿Ha saltado un breaker propio del sleeve, o está pausado? */
+export function breakerSleeve(
+  config: AtlasConfig,
+  ctx: ContextoCartera,
+  sleeve: SleeveId,
+  limites: LimitesSleeve,
+): SleeveRechazo | undefined {
+  const estado = ctx.sleeves[sleeve];
+
+  if (estado.pausadoHasta && ctx.fecha < estado.pausadoHasta) return "sleeve_pausado";
+
+  if (
+    limites.pararTrasPerdidasConsecutivas !== undefined &&
+    estado.perdidasConsecutivasHoy >= limites.pararTrasPerdidasConsecutivas
+  ) {
+    return "breaker_sleeve_perdidas_consecutivas";
+  }
+
+  if (limites.breakerDrawdownPct !== undefined) {
+    const capital = capitalDeSleeve(config.cartera, ctx.equityTotal, sleeve);
+    if (capital > 0 && -estado.pnlDia / capital >= limites.breakerDrawdownPct) {
+      return "breaker_sleeve_drawdown";
+    }
+  }
+
+  if (limites.tradesDiaMax !== undefined && estado.tradesHoy >= limites.tradesDiaMax) {
+    return "limite_trades_dia";
+  }
+  if (limites.tradesSemanaMax !== undefined && estado.tradesSemana >= limites.tradesSemanaMax) {
+    return "limite_trades_semana";
+  }
+
+  return undefined;
+}
+
+/**
+ * Regla del spread (Tarea 5): rechazar si supera 1.5x lo normal del activo.
+ * Sin línea base fiable se rechaza igualmente — operar sin saber el spread
+ * normal es justo el error que mató a las estrategias intradía anteriores
+ * (ver 27_SCALPING/03).
+ */
+export function comprobarSpread(config: AtlasConfig, signal: SleeveSignal): SleeveRechazo | undefined {
+  if (signal.spreadActual === undefined) return undefined; // el sleeve no aporta spread: no aplica
+  const { spreadNormal, spreadMuestras } = signal;
+
+  if (spreadNormal === undefined || !(spreadNormal > 0)) return "spread_sin_referencia";
+  if (spreadMuestras !== undefined && spreadMuestras < config.riesgo.spreadMuestrasMinimas) {
+    return "spread_sin_referencia";
+  }
+  if (signal.spreadActual > spreadNormal * config.riesgo.spreadMaxXNormal) return "spread_excesivo";
+
+  return undefined;
+}
+
+/**
+ * Evalúa una señal contra todo el aparato de riesgo y, si sobrevive, la
+ * convierte en una orden dimensionada.
+ */
+export function evaluarSleeve(
+  config: AtlasConfig,
+  ctx: ContextoCartera,
+  signal: SleeveSignal,
+  limites: LimitesSleeve,
+): SleeveDecision {
+  // Restricción dura: Fase 1 es solo demo.
+  if (config.modo !== "demo") return rechazo("modo_no_demo");
+
+  const breakerGlobal = breakerCartera(config, ctx);
+  if (breakerGlobal) return rechazo(breakerGlobal);
+
+  const breakerPropio = breakerSleeve(config, ctx, signal.sleeve, limites);
+  if (breakerPropio) return rechazo(breakerPropio);
+
+  const estado = ctx.sleeves[signal.sleeve];
+
+  // Un solo intento por setup: sin reentrada al mismo nivel el mismo día.
+  if (signal.setupId && estado.setupsUsadosHoy.includes(signal.setupId)) {
+    return rechazo("reentrada_mismo_setup");
+  }
+
+  // Nunca dos sleeves en el mismo instrumento y dirección (Tarea 1).
+  if (crearIaSolapamiento(ctx.sleeves, signal.sleeve, signal.symbol, signal.side)) {
+    return rechazo("solapamiento_con_otro_sleeve");
+  }
+
+  const problemaSpread = comprobarSpread(config, signal);
+  if (problemaSpread) return rechazo(problemaSpread);
+
+  const stopDistance = Math.abs(signal.entryPrice - signal.stopPrice);
+  if (!(stopDistance > 0)) return rechazo("stop_invalido");
+
+  // --- Sizing sobre el capital del SLEEVE ---
+  const capital = capitalDeSleeve(config.cartera, ctx.equityTotal, signal.sleeve);
+  const { min, max } = config.riesgo.riesgoPorTradePct;
+  const escala = signal.escalaVolTarget === undefined ? 1 : Math.min(1, Math.max(0, signal.escalaVolTarget));
+  const fraccion = Math.min(max, Math.max(min, limites.riesgoPorTradePct)) * escala;
+
+  let riskAmount = capital * fraccion;
+  const disponible = presupuestoDisponible(config.cartera, ctx.equityTotal, estado);
+  if (riskAmount > disponible) {
+    // El margen ocioso de OTROS sleeves no está disponible (Tarea 1, regla 2).
+    if (!(disponible > 0)) return rechazo("presupuesto_sleeve_agotado");
+    riskAmount = disponible;
+  }
+
+  let size = riskAmount / stopDistance;
+  if (!(size > 0)) return rechazo("size_no_positivo");
+
+  // --- Apalancamiento ESMA sobre el nocional resultante ---
+  let veredicto = verificarEsma(config.esma, signal.symbol, size, signal.entryPrice, capital);
+  if (!veredicto.permitido && veredicto.motivo === "simbolo_sin_clasificar") {
+    return rechazo("esma_simbolo_sin_clasificar");
+  }
+  if (!veredicto.permitido && veredicto.motivo === "apalancamiento_excedido") {
+    // Recortar al tamaño máximo legal en vez de descartar la señal: el límite
+    // regulatorio acota la posición, no invalida la oportunidad.
+    size = sizeMaximoEsma(config.esma, signal.symbol, signal.entryPrice, capital);
+    if (!(size > 0)) return rechazo("esma_apalancamiento_excedido");
+    riskAmount = size * stopDistance;
+    veredicto = verificarEsma(config.esma, signal.symbol, size, signal.entryPrice, capital);
+  }
+  if (!veredicto.permitido) return rechazo("esma_apalancamiento_excedido");
+
+  return {
+    approved: true,
+    order: {
+      symbol: signal.symbol,
+      side: signal.side,
+      size,
+      entryPrice: signal.entryPrice,
+      stopPrice: signal.stopPrice,
+      riskAmount,
+      correlationGroup: signal.correlationGroup,
+      sleeve: signal.sleeve,
+      nocional: veredicto.nocional,
+      apalancamientoUsado: veredicto.apalancamientoUsado,
+      setupId: signal.setupId,
+    },
+  };
+}
+
+/** Riesgo abierto agregado de los tres sleeves (informe y dashboard). */
+export function riesgoAbiertoCartera(sleeves: CarteraSleeves): number {
+  return riesgoAbierto(sleeves.core) + riesgoAbierto(sleeves.intradia) + riesgoAbierto(sleeves.eventscalp);
+}
