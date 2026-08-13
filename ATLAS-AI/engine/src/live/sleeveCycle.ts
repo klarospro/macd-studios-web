@@ -33,6 +33,8 @@ import {
   notificarVenueRecuperado,
 } from "./telegramSleeve";
 import { evaluarSalud, minutosCaido } from "./vigilanciaVenue";
+import { puntuarSetup, VelaFlujo } from "../strategy/orderFlow";
+import { crearRegistroSenales, desdePuntuacion } from "../audit/registroSenales";
 import { permiteExposicion, PiernaExpuesta } from "../risk/exposicionDivisa";
 import { publishSnapshot } from "./supabaseLive";
 import { HeldPosition } from "./state";
@@ -80,6 +82,7 @@ type AdaptadorCiclo = DerivDemoAdapter | PaperDerivAdapter | IgAdapter;
 
 const audit = createAuditLog(fileURLToPath(new URL("audit.jsonl", RUNTIME)));
 const tradeLog = crearSleeveTradeLog(fileURLToPath(new URL("sleeve-trades.jsonl", RUNTIME)));
+const registroSenales = crearRegistroSenales(fileURLToPath(new URL("senales.jsonl", RUNTIME)));
 
 /** Instrumentos por sleeve. Salen del universo verificado en `atlas.yaml`. */
 function instrumentosDe(config: AtlasConfig, sleeve: SleeveId): string[] {
@@ -548,6 +551,51 @@ async function vigilar(
 }
 
 /**
+ * Puntúa los setups de microestructura y los ANOTA todos, se operen o no.
+ *
+ * Usa las velas M15 del propio bróker (las que ya están en caché), no una
+ * serie construida aparte. No abre posiciones: su única misión es acumular
+ * señales con su nota y su desglose para poder decidir, con muestra suficiente,
+ * si la puntuación predice algo. Un fallo aquí nunca puede romper el ciclo.
+ */
+async function observarFlujo(adapter: AdaptadorCiclo, at: string): Promise<void> {
+  for (const symbol of Object.keys(EPIC_POR_SIMBOLO)) {
+    try {
+      const velas = await adapter.intradayCandles(symbol, 900, 120);
+      if (velas.length < 40) continue;
+
+      const flujo: VelaFlujo[] = velas.map((v) => ({
+        epoch: v.epoch, open: v.open, high: v.high, low: v.low, close: v.close,
+        // Las velas del bróker traen volumen; el tipo `Vela` no lo expone, así
+        // que se toma de la propia vela cuando está.
+        volumen: (v as unknown as { volumen?: number | null }).volumen ?? null,
+      }));
+
+      const t = flujo.length - 1;
+      const p = puntuarSetup(flujo, t);
+      if (!p) continue;
+
+      const ultima = velas[t]!;
+      await registroSenales.anotar(
+        desdePuntuacion(p, {
+          at,
+          venueId: VENUE_ID,
+          symbol,
+          precio: ultima.close,
+          spread: 0,
+          // En observación TODO se marca como no operado: el motor aún no tiene
+          // ventaja demostrada y no debe tocar la cartera.
+          rechazo: "observacion_sin_ventaja_demostrada",
+        }),
+      );
+      console.log(`  flujo       ${symbol}: ${p.side.toUpperCase()} score ${p.total} · ${p.regimen}`);
+    } catch {
+      // Sin velas para ese símbolo (cuota agotada, mercado nuevo): se ignora.
+    }
+  }
+}
+
+/**
  * Una pasada completa de la cartera sobre el adaptador que se le pase.
  *
  * Extraída de `main` para que Deriv, el modo papel e IG compartan EXACTAMENTE
@@ -582,6 +630,12 @@ async function ejecutarCiclo(adapter: AdaptadorCiclo, config: AtlasConfig): Prom
   if (!salud.operable) {
     // Sin catálogo no hay nada que decidir: 13 proposals condenadas a fallar
     // cada 5 minutos solo ensucian el log y gastan cuota de la API.
+    // Observación del motor de flujo. NO opera: puntúa y registra.
+    // Es lo que convierte una semana de demo en una muestra utilizable —
+    // guardar solo lo operado sesgaría los datos hacia lo que pasó los filtros,
+    // y con 44 señales no se puede distinguir ventaja de azar.
+    if (IG) await observarFlujo(adapter, at);
+
     await publicarParaPanel(adapter, estado, equity);
     guardarEstado(ESTADO_PATH, estado);
     return;
