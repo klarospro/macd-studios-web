@@ -149,6 +149,22 @@ function contexto(config: AtlasConfig, estado: EstadoCartera, equity: number, fe
 const MAX_POSICIONES_EQUIVALENTES_POR_DIVISA = 2;
 
 /**
+ * Marco temporal del sleeve Intradía y cuántas velas pedir.
+ *
+ * Con Deriv eran M5 y 5.000 velas porque el histórico era gratis. En IG cada
+ * vela cuesta cuota: 5.000 x 5 símbolos = 25.000 puntos por pasada, dos veces
+ * y media el límite SEMANAL entero. De ahí el `exceeded-account-historical-
+ * data-allowance` que dejó el sleeve parado.
+ *
+ * M15 con 300 velas cubre ~3 días de sesión, que es de sobra para rangos de
+ * apertura y rupturas horarias. Y la estrategia deduce el marco de las propias
+ * velas (`minutosPorVela`), así que no hay que tocar su lógica: los umbrales
+ * se recalculan solos sobre el nuevo marco.
+ */
+const GRANULARIDAD_INTRADIA = IG ? 900 : 300;
+const VELAS_INTRADIA = IG ? 300 : 5000;
+
+/**
  * Tope de exposición neta por divisa, en moneda de cuenta.
  *
  * Se calcula sobre el EQUITY, no sobre el riesgo de la señal candidata. Con lo
@@ -378,7 +394,7 @@ async function pasadaIntradia(
     try {
       const { params } = paramsIntradiaDesdeConfig(bloque, symbol, "intradia");
       // 20 jornadas de M5 para la media de recorrido por hora + margen.
-      const velas: Vela[] = await adapter.intradayCandles(symbol, 300, 5000);
+      const velas: Vela[] = await adapter.intradayCandles(symbol, GRANULARIDAD_INTRADIA, VELAS_INTRADIA);
       if (velas.length < 300) continue;
       const t = velas.length - 1;
 
@@ -427,7 +443,7 @@ async function pasadaEventScalp(
 
   for (const evento of delDia) {
     try {
-      const velas = await adapter.intradayCandles(evento.symbol, 300, 100);
+      const velas = await adapter.intradayCandles(evento.symbol, GRANULARIDAD_INTRADIA, 100);
       if (velas.length < 20) continue;
       const t = velas.length - 1;
 

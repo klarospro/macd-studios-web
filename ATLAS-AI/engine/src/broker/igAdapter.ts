@@ -1,5 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { CachePrecios, VelaCache } from "./cachePrecios";
+import { GrabadorPrecios } from "./grabadorPrecios";
 import { IgClient, IgConfig, ResolucionIg, VelaIg } from "./igClient";
 import { Order, Position } from "../domain/types";
 import { Vela } from "../domain/bars";
@@ -56,12 +57,14 @@ export class IgAdapter {
   readonly name = "ig";
   private readonly cliente: IgClient;
   private readonly cache: CachePrecios;
+  private readonly grabador: GrabadorPrecios;
   accountId = "";
   currency = "";
 
   constructor(config: IgConfig, rutaCache?: string) {
     this.cliente = new IgClient(config);
     this.cache = new CachePrecios(rutaCache ?? fileURLToPath(new URL("../../runtime/cache-ig/", import.meta.url)));
+    this.grabador = new GrabadorPrecios(this.cache);
   }
 
   /**
@@ -88,11 +91,18 @@ export class IgAdapter {
           })),
         );
       } catch (e) {
-        // Cuota agotada o fallo de red: se opera con lo que haya en caché en
-        // vez de quedarse ciego. Si la caché está vacía, el llamador lo verá.
+        // Cuota agotada o fallo de red: se sirve de lo que haya, y si el
+        // bróker nunca dio histórico de este símbolo, de la serie PROPIA que
+        // el grabador va acumulando con los precios de cada ciclo.
         const guardadas = this.cache.leer(epic, resolucion);
-        if (guardadas.length === 0) throw e;
-        console.log(`  aviso: histórico de ${symbol} servido de caché (${e instanceof Error ? e.message : e})`);
+        if (guardadas.length > 0) {
+          console.log(`  aviso: histórico de ${symbol} servido de caché (${e instanceof Error ? e.message : e})`);
+        } else {
+          const propias = this.grabador.serie(epic);
+          if (propias.length === 0) throw e;
+          console.log(`  aviso: ${symbol} usa serie propia (${propias.length} velas grabadas, sin cuota)`);
+          return propias;
+        }
       }
     }
     return this.cache.leer(epic, resolucion);
@@ -131,6 +141,12 @@ export class IgAdapter {
     for (const [symbol, epic] of Object.entries(EPIC_POR_SIMBOLO)) {
       try {
         const m = await this.cliente.mercado(epic);
+        // Se aprovecha la consulta para ir construyendo serie propia. El
+        // snapshot de precio NO cuenta contra la cuota de histórico (solo
+        // /prices lo hace), así que esto es gratis y crece en cada pasada.
+        if (m.estado === "TRADEABLE") {
+          this.grabador.registrar(epic, { epoch: Math.floor(Date.now() / 1000), bid: m.bid, ask: m.ask });
+        }
         salida.push({ symbol, nombre: symbol, mercado: "ig", submercado: epic, abierto: m.estado === "TRADEABLE" });
       } catch {
         // Un instrumento que falla no debe hacer creer que el venue entero cayó.

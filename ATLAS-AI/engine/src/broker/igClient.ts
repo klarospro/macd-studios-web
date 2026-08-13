@@ -118,18 +118,44 @@ export class IgClient {
     return h;
   }
 
-  async conectar(): Promise<void> {
-    const r = await fetch(`${this.base}/session`, {
-      method: "POST",
-      headers: this.cabeceras("2", false),
-      body: JSON.stringify({ identifier: this.config.usuario, password: this.config.password }),
-    });
-    const j = (await r.json().catch(() => ({}))) as Record<string, any>;
-    if (!r.ok) throw new Error(`IG login ${r.status}: ${j.errorCode ?? "desconocido"}`);
-    this.cst = r.headers.get("CST") ?? undefined;
-    this.token = r.headers.get("X-SECURITY-TOKEN") ?? undefined;
-    this.accountId = j.currentAccountId ?? "";
-    this.currency = j.currencyIsoCode ?? "";
+  /**
+   * Abre sesión, reintentando ante limitación de IG.
+   *
+   * IG estrangula los logins seguidos y responde
+   * `failure-invalid-client-security-token`, que NO significa credenciales
+   * malas sino "demasiado rápido". Un bot 24/7 se topa con esto en cuanto
+   * coinciden el timer y cualquier ejecución manual, y morir por eso dejaría
+   * la cartera sin vigilancia hasta la siguiente pasada.
+   */
+  async conectar(intentos = 3): Promise<void> {
+    let ultimoError = "";
+    for (let intento = 1; intento <= intentos; intento++) {
+      const r = await fetch(`${this.base}/session`, {
+        method: "POST",
+        headers: this.cabeceras("2", false),
+        body: JSON.stringify({ identifier: this.config.usuario, password: this.config.password }),
+      });
+      const j = (await r.json().catch(() => ({}))) as Record<string, any>;
+
+      if (r.ok) {
+        this.cst = r.headers.get("CST") ?? undefined;
+        this.token = r.headers.get("X-SECURITY-TOKEN") ?? undefined;
+        this.accountId = j.currentAccountId ?? "";
+        this.currency = j.currencyIsoCode ?? "";
+        return;
+      }
+
+      ultimoError = `${r.status}: ${j.errorCode ?? "desconocido"}`;
+      const esLimitacion = /security-token|rate|throttle|too-many/i.test(String(j.errorCode ?? ""));
+      // Credenciales mal puestas no mejoran esperando: se falla ya y se dice
+      // por qué, en vez de gastar tres intentos en lo mismo.
+      if (!esLimitacion || intento === intentos) break;
+
+      const espera = intento * 20_000; // 20 s, 40 s
+      console.log(`  aviso: IG limita el login (${j.errorCode}). Reintento ${intento}/${intentos - 1} en ${espera / 1000}s`);
+      await new Promise((res) => setTimeout(res, espera));
+    }
+    throw new Error(`IG login ${ultimoError}`);
   }
 
   async desconectar(): Promise<void> {
