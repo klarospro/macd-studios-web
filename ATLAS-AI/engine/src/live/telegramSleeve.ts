@@ -129,3 +129,34 @@ export async function enviarResumenSemanal(texto: string): Promise<void> {
   await enviar(chatOps(), texto);
   await fanoutN8n({ kind: "weekly_summary", texto });
 }
+
+/**
+ * Avisa de que el bróker dejó de ofrecer mercado. Va SOLO a operaciones: es un
+ * problema de infraestructura, no una noticia para clientes.
+ */
+export async function notificarVenueCaido(minutos: number, detalle: string): Promise<void> {
+  const texto = [
+    `🔴 <b>ATLAS · venue sin ofertas</b>`,
+    ``,
+    `Deriv lleva <b>${minutos} min</b> sin ofrecer ni un símbolo operable.`,
+    `El motor está vivo y no ha abierto nada: no hay riesgo en curso.`,
+    ``,
+    `<code>${detalle}</code>`,
+    ``,
+    `Se avisará de nuevo cuando el bróker vuelva.`,
+  ].join("\n");
+  await enviar(chatOps(), texto);
+  await fanoutN8n({ kind: "venue_down", minutos, detalle });
+}
+
+/** Cierra el incidente anterior: sin esto nadie sabe si sigue roto. */
+export async function notificarVenueRecuperado(minutos: number, simbolos: number): Promise<void> {
+  const texto = [
+    `🟢 <b>ATLAS · venue recuperado</b>`,
+    ``,
+    `Deriv vuelve a ofrecer <b>${simbolos} símbolos</b>.`,
+    `Estuvo caído ~${minutos} min. El motor reanuda el ciclo normal.`,
+  ].join("\n");
+  await enviar(chatOps(), texto);
+  await fanoutN8n({ kind: "venue_up", minutos, simbolos });
+}

@@ -29,6 +29,13 @@ export interface EstadoCartera {
    * para releer barras que cambian una vez al día.
    */
   ultimaPasadaCore?: string;
+  /**
+   * Pasadas consecutivas en las que el bróker no ofreció ni un símbolo, y si ya
+   * se avisó de esa caída. Persistir las dos cosas es lo que permite avisar UNA
+   * vez y cerrar el incidente al recuperarse. Ver `vigilanciaVenue.ts`.
+   */
+  ciclosSinOfertas?: number;
+  avisoVenueEnviado?: boolean;
 }
 
 /** Lunes de la semana de `fecha` (ISO, UTC). */

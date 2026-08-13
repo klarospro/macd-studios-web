@@ -1,10 +1,11 @@
 import { fileURLToPath } from "node:url";
 import { DerivDemoAdapter, derivConfigFromEnv } from "../broker/derivDemoAdapter";
+import { PaperDerivAdapter } from "../broker/paperDerivAdapter";
 import { AtlasConfig, cargarConfig, SleeveId, SLEEVE_IDS } from "../config/sleeveConfig";
 import { fechaUtc, Vela } from "../domain/bars";
 import { crearSleeveTradeLog, SleeveTrade } from "../audit/sleeveTrade";
 import { createAuditLog } from "../audit/supabaseAuditLog";
-import { detectarSolapamientos, SleevePosition } from "../portfolio/sleeveAllocator";
+import { capitalDeSleeve, detectarSolapamientos, SleevePosition } from "../portfolio/sleeveAllocator";
 import { ContextoCartera, evaluarSleeve, LimitesSleeve, SleeveDecision, SleeveSignal } from "../risk/sleeveRiskGate";
 import { paramsCoreDesdeConfig, senalCore, debeCerrarCore } from "../strategy/sleeveCore";
 import { paramsIntradiaDesdeConfig, senalIntradia } from "../strategy/sleeveIntradia";
@@ -23,7 +24,14 @@ import {
   registrarCierre,
   rotarPeriodos,
 } from "./sleeveState";
-import { notificarEntradaSleeve, notificarSalidaSleeve } from "./telegramSleeve";
+import {
+  notificarEntradaSleeve,
+  notificarSalidaSleeve,
+  notificarVenueCaido,
+  notificarVenueRecuperado,
+} from "./telegramSleeve";
+import { evaluarSalud, minutosCaido } from "./vigilanciaVenue";
+import { permiteExposicion, PiernaExpuesta } from "../risk/exposicionDivisa";
 import { publishSnapshot } from "./supabaseLive";
 import { HeldPosition } from "./state";
 
@@ -41,8 +49,25 @@ import { HeldPosition } from "./state";
  */
 
 const EXECUTE = process.argv.includes("--execute");
+/**
+ * `--paper`: mismas estrategias y mismo riesgo, pero la ejecución se simula
+ * sobre el feed de precios real (ver `paperDerivAdapter.ts`). Existe porque el
+ * 2026-08-12 Deriv dejó de ofrecer contratos mientras seguía publicando precios:
+ * sin esto, un bróker medio caído deja la cartera sin nada que enseñar.
+ * Su estado y su venue van SEPARADOS del real: mezclar las dos curvas de equity
+ * en el panel sería la peor forma posible de equivocarse.
+ */
+const PAPER = process.argv.includes("--paper");
+const VENUE_ID = PAPER ? "deriv-paper" : "deriv-demo";
 const RUNTIME = new URL("../../runtime/", import.meta.url);
-const ESTADO_PATH = fileURLToPath(new URL("sleeves.json", RUNTIME));
+const ESTADO_PATH = fileURLToPath(new URL(PAPER ? "sleeves-paper.json" : "sleeves.json", RUNTIME));
+const CUENTA_PAPEL_PATH = fileURLToPath(new URL("paper.json", RUNTIME));
+
+/**
+ * Lo que el ciclo necesita de un bróker. `DerivDemoAdapter` (real) y
+ * `PaperDerivAdapter` (simulado) lo cumplen: el ciclo no distingue cuál lleva.
+ */
+type AdaptadorCiclo = DerivDemoAdapter | PaperDerivAdapter;
 
 const audit = createAuditLog(fileURLToPath(new URL("audit.jsonl", RUNTIME)));
 const tradeLog = crearSleeveTradeLog(fileURLToPath(new URL("sleeve-trades.jsonl", RUNTIME)));
@@ -97,16 +122,66 @@ function contexto(config: AtlasConfig, estado: EstadoCartera, equity: number, fe
   };
 }
 
+/**
+ * Cuántas operaciones a riesgo pleno puede acumular una misma divisa. Con 2, la
+ * cartera puede apostar contra el yen por dos vías, no por tres. Ver
+ * `exposicionDivisa.ts` para el caso real que motivó el límite.
+ */
+const MAX_POSICIONES_EQUIVALENTES_POR_DIVISA = 2;
+
+/**
+ * Tope de exposición neta por divisa, en moneda de cuenta.
+ *
+ * Se calcula sobre el EQUITY, no sobre el riesgo de la señal candidata. Con lo
+ * segundo el tope encogía con la señal —una entrada de oro a $6,49 de riesgo
+ * generaba un tope de $12,98 y se bloqueaba a sí misma— y la cartera se quedaba
+ * sin poder diversificar. Medido en la primera pasada con el límite activo.
+ */
+function topeDivisa(config: AtlasConfig, equity: number): number {
+  // El riesgo por operación es un % del capital DEL SLEEVE, no del equity total
+  // (`atlas.yaml`: core 40%, intradía 30%, eventscalp 30%). Calcularlo sobre el
+  // equity daba un tope 2,5x demasiado ancho y el límite no llegaba a morder.
+  const capitalMayor = Math.max(...SLEEVE_IDS.map((id) => capitalDeSleeve(config.cartera, equity, id)));
+  return capitalMayor * config.riesgo.riesgoPorTradePct.max * MAX_POSICIONES_EQUIVALENTES_POR_DIVISA;
+}
+
+/** Todas las posiciones abiertas de la cartera, de todos los sleeves. */
+function piernasAbiertas(estado: EstadoCartera): PiernaExpuesta[] {
+  return SLEEVE_IDS.flatMap((id) =>
+    estado.sleeves[id].openPositions.map((p) => ({ symbol: p.symbol, side: p.side, riskAmount: p.riskAmount })),
+  );
+}
+
 /** Ejecuta una decisión aprobada: abre en el broker, registra y avisa. */
 async function abrir(
-  adapter: DerivDemoAdapter,
+  adapter: AdaptadorCiclo,
   estado: EstadoCartera,
   decision: Extract<SleeveDecision, { approved: true }>,
   at: string,
   etiqueta: string,
+  topePorDivisa: number,
   puntuacionIa?: number,
 ): Promise<void> {
   const orden = decision.order;
+
+  // Último filtro, y deliberadamente aquí: `abrir` es el ÚNICO camino por el
+  // que se abre una posición, así que ninguna ruta futura podrá saltárselo.
+  // El tope por clase ESMA es regulatorio y no ve que USD/JPY, EUR/JPY y
+  // GBP/JPY son la misma apuesta contra el yen.
+  const veredicto = permiteExposicion(
+    piernasAbiertas(estado),
+    { symbol: orden.symbol, side: orden.side, riskAmount: orden.riskAmount },
+    topePorDivisa,
+    { divisaCuenta: "USD" },
+  );
+  if (!veredicto.permitido) {
+    console.log(
+      `  ${orden.sleeve.padEnd(11)} ${orden.symbol}: rechazada · exposición neta en ${veredicto.divisa} ` +
+        `llegaría a $${Math.abs(veredicto.expuestoTras ?? 0).toFixed(2)} (tope $${veredicto.limite?.toFixed(2)})`,
+    );
+    await audit.record({ kind: "order_rejected", at, signal: orden, reason: "max_aggregate_risk", venueId: VENUE_ID });
+    return;
+  }
 
   const posicion: SleevePosition = EXECUTE
     ? { ...(await adapter.placeOrder(orden)), sleeve: orden.sleeve }
@@ -143,7 +218,7 @@ async function abrir(
   };
 
   await tradeLog.registrar(trade).catch((e) => console.log(`  aviso: no se pudo registrar el trade (${e})`));
-  await audit.record({ kind: "order_placed", at, order: orden, positionId: posicion.id, venueId: "deriv-demo" });
+  await audit.record({ kind: "order_placed", at, order: orden, positionId: posicion.id, venueId: VENUE_ID });
   await notificarEntradaSleeve(orden, etiqueta, !EXECUTE);
 
   console.log(
@@ -155,7 +230,7 @@ async function abrir(
 
 /** Cierra una posición: en el broker, en el estado, en la auditoría y por Telegram. */
 async function cerrar(
-  adapter: DerivDemoAdapter,
+  adapter: AdaptadorCiclo,
   estado: EstadoCartera,
   posicion: SleevePosition,
   motivo: string,
@@ -182,7 +257,7 @@ async function cerrar(
   await audit.record({
     kind: "position_closed",
     at,
-    venueId: "deriv-demo",
+    venueId: VENUE_ID,
     positionId: posicion.id,
     symbol: posicion.symbol,
     motivo,
@@ -196,7 +271,7 @@ async function cerrar(
 // Sleeve A — Core
 // ---------------------------------------------------------------------------
 async function pasadaCore(
-  adapter: DerivDemoAdapter,
+  adapter: AdaptadorCiclo,
   config: AtlasConfig,
   estado: EstadoCartera,
   equity: number,
@@ -235,10 +310,10 @@ async function pasadaCore(
 
       const decision = evaluarSleeve(config, contexto(config, estado, equity, fecha), signal, limitesDe(config, "core"));
       if (!decision.approved) {
-        await audit.record({ kind: "order_rejected", at, signal, reason: "max_aggregate_risk", venueId: "deriv-demo" });
+        await audit.record({ kind: "order_rejected", at, signal, reason: "max_aggregate_risk", venueId: VENUE_ID });
         continue;
       }
-      await abrir(adapter, estado, decision, at, symbol);
+      await abrir(adapter, estado, decision, at, symbol, topeDivisa(config, equity));
       brokerRespondio = true;
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : String(error);
@@ -261,7 +336,7 @@ async function pasadaCore(
 // Sleeve B — Intradía
 // ---------------------------------------------------------------------------
 async function pasadaIntradia(
-  adapter: DerivDemoAdapter,
+  adapter: AdaptadorCiclo,
   config: AtlasConfig,
   estado: EstadoCartera,
   equity: number,
@@ -290,7 +365,7 @@ async function pasadaIntradia(
         limitesDe(config, "intradia"),
       );
       if (!decision.approved) continue;
-      await abrir(adapter, estado, decision, at, symbol);
+      await abrir(adapter, estado, decision, at, symbol, topeDivisa(config, equity));
     } catch (error) {
       console.log(`  intradia    ${symbol}: ${error instanceof Error ? error.message : String(error)} (se salta)`);
     }
@@ -301,7 +376,7 @@ async function pasadaIntradia(
 // Sleeve C — EventScalp
 // ---------------------------------------------------------------------------
 async function pasadaEventScalp(
-  adapter: DerivDemoAdapter,
+  adapter: AdaptadorCiclo,
   config: AtlasConfig,
   estado: EstadoCartera,
   equity: number,
@@ -356,7 +431,7 @@ async function pasadaEventScalp(
         console.log(`  eventscalp  ${evento.id}: rechazado por riesgo (${decision.reason})`);
         continue;
       }
-      await abrir(adapter, estado, decision, at, evento.tipo, resultado.puntuacion);
+      await abrir(adapter, estado, decision, at, evento.tipo, topeDivisa(config, equity), resultado.puntuacion);
     } catch (error) {
       console.log(`  eventscalp  ${evento.id}: ${error instanceof Error ? error.message : String(error)} (se salta)`);
     }
@@ -375,7 +450,7 @@ async function pasadaEventScalp(
  * que en el panel se vea de dónde viene cada una.
  */
 async function publicarParaPanel(
-  adapter: DerivDemoAdapter,
+  adapter: AdaptadorCiclo,
   estado: EstadoCartera,
   equity: number,
 ): Promise<void> {
@@ -404,7 +479,48 @@ async function publicarParaPanel(
     }
   }
 
-  await publishSnapshot("deriv-demo", equity, posiciones, pnl).catch(() => null);
+  await publishSnapshot(VENUE_ID, equity, posiciones, pnl).catch(() => null);
+}
+
+/**
+ * Comprueba que el bróker siga ofreciendo mercado y gestiona el aviso.
+ *
+ * Devuelve si tiene sentido operar en esta pasada. Muta `estado` con los
+ * contadores de la vigilancia; el guardado lo hace el llamador.
+ */
+async function vigilar(
+  adapter: AdaptadorCiclo,
+  estado: EstadoCartera,
+  at: string,
+): Promise<{ operable: boolean; simbolos: number }> {
+  // Un fallo de red aquí cuenta como "sin ofertas": es indistinguible desde
+  // fuera y, ante la duda, no se opera.
+  const simbolos = await adapter.activeSymbols().catch(() => []);
+
+  const decision = evaluarSalud(simbolos.length, {
+    ciclosSinOfertas: estado.ciclosSinOfertas ?? 0,
+    avisoEnviado: estado.avisoVenueEnviado ?? false,
+  });
+  const minutos = minutosCaido(decision.ciclosSinOfertas);
+
+  if (decision.accion === "avisar_caido") {
+    console.error(
+      `  [!] VENUE CAÍDO: Deriv lleva ${minutos} min sin ofrecer símbolos (${decision.ciclosSinOfertas} ciclos). ` +
+        `No se ha abierto nada. ${at}`,
+    );
+    await notificarVenueCaido(minutos, "active_symbols devuelve 0 símbolos").catch(() => null);
+  } else if (decision.accion === "avisar_recuperado") {
+    const minutosPrevios = minutosCaido(estado.ciclosSinOfertas ?? 0);
+    console.log(`  [ok] Venue recuperado tras ~${minutosPrevios} min: ${simbolos.length} símbolos.`);
+    await notificarVenueRecuperado(minutosPrevios, simbolos.length).catch(() => null);
+  } else if (!decision.operable) {
+    // Todavía por debajo del umbral: se registra, no se grita.
+    console.log(`  venue sin ofertas (${decision.ciclosSinOfertas}/${3} ciclos) — se reintenta en la próxima pasada`);
+  }
+
+  estado.ciclosSinOfertas = decision.ciclosSinOfertas;
+  estado.avisoVenueEnviado = decision.avisoEnviado;
+  return { operable: decision.operable, simbolos: simbolos.length };
 }
 
 // ---------------------------------------------------------------------------
@@ -414,8 +530,20 @@ async function main(): Promise<void> {
     throw new Error("SEGURIDAD: atlas.yaml no está en modo demo. Fase 1 es solo demo.");
   }
 
-  const adapter = new DerivDemoAdapter(derivConfigFromEnv());
-  await adapter.connect();
+  const real = new DerivDemoAdapter(derivConfigFromEnv());
+  // En papel, el adaptador real queda dentro como FUENTE DE PRECIOS: las velas
+  // son las mismas que usaría la cuenta demo, solo cambia quién ejecuta.
+  await real.connect();
+  const adapter: AdaptadorCiclo = PAPER
+    ? new PaperDerivAdapter(
+        real,
+        CUENTA_PAPEL_PATH,
+        // Semilla del equity de papel: el saldo real de la demo, para que las
+        // dos curvas arranquen del mismo sitio y sean comparables.
+        await real.getEquity().catch(() => 10_000),
+        Object.keys(config.esma.clasePorSimbolo),
+      )
+    : real;
 
   try {
     const equity = await adapter.getEquity();
@@ -436,6 +564,19 @@ async function main(): Promise<void> {
       `  P&L día ${pnl.dia.toFixed(2)} (${((pnl.dia / equity) * 100).toFixed(2)}%) · ` +
         `semana ${pnl.semana.toFixed(2)} (${((pnl.semana / equity) * 100).toFixed(2)}%)`,
     );
+
+    // ANTES de intentar nada: ¿el bróker ofrece mercado? Un catálogo vacío no
+    // es "mercados cerrados" —un domingo el catálogo llega entero con
+    // exchange_is_open=0— sino el venue caído. Distinguirlo evita repetir el
+    // 2026-08-12: 17 horas rechazando órdenes y anotándolo como normalidad.
+    const salud = await vigilar(adapter, estado, at);
+    if (!salud.operable) {
+      // Sin catálogo no hay nada que decidir: 13 proposals condenadas a fallar
+      // cada 5 minutos solo ensucian el log y gastan cuota de la API.
+      await publicarParaPanel(adapter, estado, equity);
+      guardarEstado(ESTADO_PATH, estado);
+      return;
+    }
 
     // El Sleeve C va primero: sus eventos definen de qué debe apartarse el B.
     const minutosAEvento = await pasadaEventScalp(adapter, config, estado, equity, fecha, at, ahoraEpoch);
