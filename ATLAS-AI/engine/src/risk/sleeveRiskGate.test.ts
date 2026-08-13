@@ -77,7 +77,13 @@ describe("sleeveRiskGate · sizing sobre el capital del sleeve", () => {
   it("acota el riesgo por trade al rango del YAML aunque el sleeve pida más", () => {
     const decision = evaluarSleeve(config, ctx(), senal(), { riesgoPorTradePct: 0.5 });
     expect(decision.approved).toBe(true);
-    if (decision.approved) expect(decision.order.riskAmount).toBeCloseTo(4_000 * 0.005, 9);
+    // Se lee el tope DEL YAML en vez de fijarlo aquí: lo que se comprueba es
+    // que el gate respeta la configuración, no que valga un número concreto.
+    // Con el literal, subir el riesgo en `atlas.yaml` rompía este test sin que
+    // hubiera ningún fallo real (ocurrió al pasarlo de 0,5% a 1,0%).
+    if (decision.approved) {
+      expect(decision.order.riskAmount).toBeCloseTo(4_000 * config.riesgo.riesgoPorTradePct.max, 9);
+    }
   });
 
   it("el vol-target reduce el riesgo proporcionalmente y nunca lo amplifica", () => {
