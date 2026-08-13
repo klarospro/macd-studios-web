@@ -14,13 +14,47 @@ interface Position {
   profit: number | null
   opened_at: string | null
 }
+interface Trade {
+  id: string
+  sleeve: string
+  symbol: string
+  side: string
+  setup_id: string | null
+  abierto_en: string
+  cerrado_en: string | null
+  precio_entrada: number
+  precio_salida: number | null
+  pnl: number | null
+  motivo_salida: string | null
+  risk_amount: number
+  simulada: boolean
+}
 interface Live {
+  venue: string
+  venues: string[]
   positions: Position[]
   equity: number | null
   equityHistory: number[]
   totalPnl: number
   openRisk: number
   updatedAt: string | null
+  balance: {
+    inicial: number | null
+    actual: number | null
+    desde: string | null
+    variacion: number | null
+    variacionPct: number | null
+  }
+  historial: Trade[]
+  resumen: {
+    total: number
+    abiertas: number
+    cerradas: number
+    ganadoras: number
+    aciertosPct: number | null
+    pnlRealizado: number
+    profitFactor: number | null
+  }
 }
 
 const REFRESH_MS = 8000
@@ -92,10 +126,11 @@ export default function LivePanel() {
   const [error, setError] = useState('')
   const [secs, setSecs] = useState(0)
   const tokRef = useRef('')
+  const venueRef = useRef<string | undefined>(undefined)
 
-  const load = useCallback(async (tok: string) => {
+  const load = useCallback(async (tok: string, venue?: string) => {
     try {
-      const res = await fetch(`/api/atlas/live?token=${encodeURIComponent(tok)}`)
+      const res = await fetch(`/api/atlas/live?token=${encodeURIComponent(tok)}${venue ? `&venue=${encodeURIComponent(venue)}` : ''}`)
       const j = await res.json()
       if (!res.ok) throw new Error(j.error || 'Error')
       setD(j); setAuthed(true); setSecs(0); tokRef.current = tok
@@ -110,7 +145,7 @@ export default function LivePanel() {
   }, [load])
   useEffect(() => {
     if (!authed) return
-    const p = setInterval(() => load(tokRef.current), REFRESH_MS)
+    const p = setInterval(() => load(tokRef.current, venueRef.current), REFRESH_MS)
     const t = setInterval(() => setSecs((s) => s + 1), 1000)
     return () => { clearInterval(p); clearInterval(t) }
   }, [authed, load])
@@ -150,6 +185,17 @@ export default function LivePanel() {
             </div>
           </div>
           <div className="flex items-center gap-2 text-[13px]">
+            {/* Selector de cuenta: la demo real y la de papel son cuentas distintas
+                y sus curvas NO deben mezclarse en el mismo gráfico. */}
+            {(d?.venues?.length ?? 0) > 1 && (
+              <select
+                value={d?.venue ?? ''}
+                onChange={(e) => { const v = e.target.value; venueRef.current = v; load(tokRef.current, v) }}
+                className="rounded-full border border-[#1c2733] bg-[#111823] px-3 py-1.5 text-[12px] text-[#97a4b2] outline-none hover:border-[#2dd4bf]/50"
+              >
+                {d?.venues.map((v) => <option key={v} value={v}>{v === 'deriv-paper' ? 'Papel (precios reales)' : v === 'deriv-demo' ? 'Deriv demo' : v}</option>)}
+              </select>
+            )}
             <a href="/panel/atlas/venues" className="rounded-full border border-[#1c2733] px-3.5 py-1.5 text-[#97a4b2] hover:border-[#2dd4bf]/50 hover:text-[#eef4f3]">Venues</a>
             <span className="flex items-center gap-2 rounded-full border border-[#1c2733] px-3 py-1.5 text-xs text-[#97a4b2]">
               <span className="h-2 w-2 animate-pulse rounded-full bg-[#5BC08C]" /> en vivo · hace {secs}s
@@ -241,6 +287,91 @@ export default function LivePanel() {
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-1.5 text-[12px] ${win ? 'text-[#5BC08C]' : 'text-[#E0736A]'}`}>
                         <span className="h-1.5 w-1.5 rounded-full" style={{ background: win ? GREEN : RED }} />{win ? 'En verde' : 'En rojo'}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Balance: de dónde partió la cuenta y dónde está ahora. */}
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_1fr_1fr_1fr]">
+          <Tile label="Balance inicial">
+            <div className="text-[22px] font-semibold tabular-nums text-[#97a4b2]">{money(d?.balance?.inicial ?? null)}</div>
+            <div className="mt-1 text-[11px] text-[#55636F]">
+              {d?.balance?.desde ? `desde ${new Date(d.balance.desde).toLocaleDateString('es-ES')}` : '—'}
+            </div>
+          </Tile>
+          <Tile label="Balance actual">
+            <div className="text-[22px] font-semibold tabular-nums">{money(d?.balance?.actual ?? null)}</div>
+            <div className="mt-1 text-[11px] text-[#55636F]">incluye P/L flotante</div>
+          </Tile>
+          <Tile label="Variación">
+            <div className={`text-[22px] font-semibold tabular-nums ${(d?.balance?.variacion ?? 0) >= 0 ? 'text-[#5BC08C]' : 'text-[#E0736A]'}`}>
+              {(d?.balance?.variacion ?? 0) >= 0 ? '+' : ''}{money(d?.balance?.variacion ?? null)}
+            </div>
+            <div className={`text-[12px] ${(d?.balance?.variacionPct ?? 0) >= 0 ? 'text-[#5BC08C]' : 'text-[#E0736A]'}`}>
+              {(d?.balance?.variacionPct ?? 0) >= 0 ? '+' : ''}{(d?.balance?.variacionPct ?? 0).toFixed(2)}%
+            </div>
+          </Tile>
+          <Tile label="Operaciones cerradas">
+            <div className="text-[22px] font-semibold tabular-nums">{d?.resumen?.cerradas ?? 0}</div>
+            <div className="mt-1 text-[11px] text-[#97a4b2]">
+              {d?.resumen?.aciertosPct != null ? `${d.resumen.aciertosPct.toFixed(0)}% de acierto` : 'sin cerradas aún'}
+              {d?.resumen?.profitFactor != null && ` · PF ${d.resumen.profitFactor.toFixed(2)}`}
+            </div>
+          </Tile>
+        </div>
+
+        {/* Historial de operaciones. Las abiertas se marcan como tales: contar
+            su P/L como resultado sería contar ganancias que aún pueden irse. */}
+        <div className="mt-4 overflow-x-auto rounded-2xl border border-[#1c2733] bg-[#111823]">
+          <div className="flex items-center justify-between border-b border-[#1c2733] px-5 py-3">
+            <span className="font-mono text-[10.5px] uppercase tracking-wider text-[#97a4b2]">Historial de operaciones</span>
+            <span className="text-[11px] text-[#55636F]">
+              {d?.resumen?.total ?? 0} registradas · {d?.resumen?.abiertas ?? 0} abiertas · P/L realizado{' '}
+              <span className={(d?.resumen?.pnlRealizado ?? 0) >= 0 ? 'text-[#5BC08C]' : 'text-[#E0736A]'}>{money(d?.resumen?.pnlRealizado ?? 0)}</span>
+            </span>
+          </div>
+          <table className="w-full border-collapse text-[13px]">
+            <thead>
+              <tr className="text-left">
+                {['Abierta', 'Activo', 'Estrategia', 'Dirección', 'Entrada', 'Salida', 'P/L', 'Motivo', 'Estado'].map((h) => (
+                  <th key={h} className="border-b border-[#1c2733] px-4 py-2.5 font-mono text-[10px] font-medium uppercase tracking-wider text-[#97a4b2]">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {(d?.historial?.length ?? 0) === 0 && (
+                <tr><td colSpan={9} className="px-4 py-10 text-center text-sm text-[#97a4b2]">Aún no hay operaciones registradas.</td></tr>
+              )}
+              {d?.historial?.map((t) => {
+                const cerrada = !!t.cerrado_en
+                const win = (t.pnl ?? 0) >= 0
+                return (
+                  <tr key={t.id} className="border-b border-[#1c2733]/50 last:border-b-0">
+                    <td className="px-4 py-3 tabular-nums text-[#97a4b2]">
+                      {new Date(t.abierto_en).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td className="px-4 py-3 font-semibold">{t.symbol}</td>
+                    <td className="px-4 py-3 text-[#97a4b2]">{t.sleeve}</td>
+                    <td className="px-4 py-3">
+                      <span className={`rounded px-2 py-0.5 font-mono text-[10px] uppercase ${t.side === 'buy' ? 'bg-[#5BC08C]/15 text-[#5BC08C]' : 'bg-[#E0736A]/15 text-[#E0736A]'}`}>
+                        {t.side === 'buy' ? 'Largo' : 'Corto'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 tabular-nums">{t.precio_entrada}</td>
+                    <td className="px-4 py-3 tabular-nums text-[#97a4b2]">{t.precio_salida ?? '—'}</td>
+                    <td className={`px-4 py-3 font-semibold tabular-nums ${cerrada ? (win ? 'text-[#5BC08C]' : 'text-[#E0736A]') : 'text-[#55636F]'}`}>
+                      {cerrada ? money(t.pnl) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-[12px] text-[#97a4b2]">{t.motivo_salida ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center gap-1.5 text-[12px] ${cerrada ? 'text-[#97a4b2]' : 'text-[#4E97DE]'}`}>
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ background: cerrada ? '#55636F' : BLUE }} />
+                        {cerrada ? 'Cerrada' : 'Abierta'}
                       </span>
                     </td>
                   </tr>
