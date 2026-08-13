@@ -1,0 +1,284 @@
+import { fileURLToPath } from "node:url";
+import { CachePrecios, VelaCache } from "./cachePrecios";
+import { IgClient, IgConfig, ResolucionIg, VelaIg } from "./igClient";
+import { Order, Position } from "../domain/types";
+import { Vela } from "../domain/bars";
+
+/**
+ * Adaptador de ejecución contra IG Markets.
+ *
+ * Sustituye a Deriv como venue operativo por tres razones medidas el 2026-08-13:
+ *   1. Deriv dejó de ofrecer contratos (17 h de rechazos) y su capa de ofertas
+ *      resultó ser un punto único de fallo sin aviso.
+ *   2. IG publica BID/ASK reales; Deriv no. Sin eso el coste era un supuesto,
+ *      y el supuesto estaba 17x equivocado.
+ *   3. IG permite operar índices (US30, Nasdaq). Deriv daba su precio pero
+ *      rechazaba la orden.
+ *
+ * SEGURIDAD: el entorno lo fija `IG_ENV`. Con DEMO, la URL base es
+ * `demo-api.ig.com` y es materialmente imposible que una orden alcance la
+ * cuenta real — no depende de una bandera interna que alguien pueda olvidar.
+ */
+
+/** Símbolo interno de Atlas → epic de IG. Verificados contra la cuenta Z6DHEP. */
+export const EPIC_POR_SIMBOLO: Record<string, string> = {
+  frxEURUSD: "CS.D.EURUSD.MINI.IP",
+  frxUSDJPY: "CS.D.USDJPY.MINI.IP",
+  frxXAUUSD: "CS.D.CFDGOLD.CFDGC.IP",
+  US30: "IX.D.DOW.IFD.IP",
+  NASDAQ: "IX.D.NASDAQ.IFD.IP",
+};
+
+/** Resolución de IG equivalente a un tamaño de vela en segundos. */
+function resolucionDe(granularidadSeg: number): ResolucionIg {
+  if (granularidadSeg <= 60) return "MINUTE";
+  if (granularidadSeg <= 300) return "MINUTE_5";
+  if (granularidadSeg <= 900) return "MINUTE_15";
+  if (granularidadSeg <= 1800) return "MINUTE_30";
+  if (granularidadSeg <= 3600) return "HOUR";
+  if (granularidadSeg <= 14400) return "HOUR_4";
+  return "DAY";
+}
+
+const aVela = (v: VelaIg): Vela => ({
+  epoch: v.epoch, open: v.mid.open, high: v.mid.high, low: v.mid.low, close: v.mid.close,
+});
+
+interface PosicionIg {
+  dealId: string;
+  epic: string;
+  direccion: "BUY" | "SELL";
+  tamano: number;
+  nivelApertura: number;
+}
+
+export class IgAdapter {
+  readonly name = "ig";
+  private readonly cliente: IgClient;
+  private readonly cache: CachePrecios;
+  accountId = "";
+  currency = "";
+
+  constructor(config: IgConfig, rutaCache?: string) {
+    this.cliente = new IgClient(config);
+    this.cache = new CachePrecios(rutaCache ?? fileURLToPath(new URL("../../runtime/cache-ig/", import.meta.url)));
+  }
+
+  /**
+   * Velas servidas de caché, pidiendo al bróker SOLO lo que falta.
+   *
+   * IG raciona 10.000 puntos de histórico por semana. Sin esto, el ciclo pedía
+   * 200 velas diarias por símbolo cada 5 minutos y agotaba la cuota semanal en
+   * minutos (medido: `exceeded-account-historical-data-allowance` a la primera
+   * pasada). Una vela diaria cambia una vez al día: pedirla 288 veces al día
+   * no aporta un solo dato nuevo.
+   */
+  private async velas(symbol: string, resolucion: ResolucionIg, minimo: number): Promise<VelaCache[]> {
+    const epic = this.epic(symbol);
+    if (this.cache.necesitaRefresco(epic, resolucion, minimo)) {
+      const cuantas = this.cache.velasQueFaltan(epic, resolucion, minimo);
+      try {
+        const { velas } = await this.cliente.historial(epic, resolucion, cuantas);
+        this.cache.guardar(
+          epic,
+          resolucion,
+          velas.map((v) => ({
+            epoch: v.epoch, open: v.mid.open, high: v.mid.high,
+            low: v.mid.low, close: v.mid.close, spread: v.spread,
+          })),
+        );
+      } catch (e) {
+        // Cuota agotada o fallo de red: se opera con lo que haya en caché en
+        // vez de quedarse ciego. Si la caché está vacía, el llamador lo verá.
+        const guardadas = this.cache.leer(epic, resolucion);
+        if (guardadas.length === 0) throw e;
+        console.log(`  aviso: histórico de ${symbol} servido de caché (${e instanceof Error ? e.message : e})`);
+      }
+    }
+    return this.cache.leer(epic, resolucion);
+  }
+
+  private epic(symbol: string): string {
+    const e = EPIC_POR_SIMBOLO[symbol];
+    // Fallo seguro: un símbolo sin epic conocido NO se opera a ciegas.
+    if (!e) throw new Error(`Sin epic de IG para ${symbol}`);
+    return e;
+  }
+
+  async connect(): Promise<void> {
+    await this.cliente.conectar();
+    this.accountId = this.cliente.accountId;
+    this.currency = this.cliente.currency;
+  }
+
+  async disconnect(): Promise<void> {
+    await this.cliente.desconectar();
+  }
+
+  async getEquity(): Promise<number> {
+    const c = await this.cliente.cuenta();
+    // Equity = saldo + P&L abierto. El "balance" a secas no incluye lo flotante
+    // y usarlo haría que los breakers de drawdown reaccionaran tarde.
+    return c.balance + c.pnl;
+  }
+
+  /**
+   * Salud del venue: qué instrumentos están operables AHORA. El ciclo lo usa
+   * para distinguir "mercado cerrado" de "bróker caído" (ver vigilanciaVenue).
+   */
+  async activeSymbols(): Promise<Array<{ symbol: string; nombre: string; mercado: string; submercado: string; abierto: boolean }>> {
+    const salida: Array<{ symbol: string; nombre: string; mercado: string; submercado: string; abierto: boolean }> = [];
+    for (const [symbol, epic] of Object.entries(EPIC_POR_SIMBOLO)) {
+      try {
+        const m = await this.cliente.mercado(epic);
+        salida.push({ symbol, nombre: symbol, mercado: "ig", submercado: epic, abierto: m.estado === "TRADEABLE" });
+      } catch {
+        // Un instrumento que falla no debe hacer creer que el venue entero cayó.
+      }
+    }
+    return salida;
+  }
+
+  async dailyCloses(symbol: string, count: number): Promise<number[]> {
+    return (await this.velas(symbol, "DAY", count)).map((v) => v.close).slice(-count);
+  }
+
+  async intradayCandles(symbol: string, granularity: number, count: number): Promise<Vela[]> {
+    const v = await this.velas(symbol, resolucionDe(granularity), count);
+    return v.slice(-count).map((x) => ({ epoch: x.epoch, open: x.open, high: x.high, low: x.low, close: x.close }));
+  }
+
+  /** IG no expone el tick a tick histórico en REST: se aproxima con velas de 1 min. */
+  async ticksEntre(symbol: string, desde: number, hasta: number): Promise<number[]> {
+    const minutos = Math.max(1, Math.min(500, Math.ceil((hasta - desde) / 60)));
+    const { velas } = await this.cliente.historial(this.epic(symbol), "MINUTE", minutos);
+    return velas.filter((v) => v.epoch >= desde && v.epoch <= hasta).map((v) => v.mid.close);
+  }
+
+  /**
+   * Coste REAL de abrir: medio spread por lado. En IG el spread ES la comisión
+   * en forex e índices, así que no hay que sumarle nada más.
+   */
+  async costeApertura(symbol: string, stake: number): Promise<{ commission: number | null; spot: number | null }> {
+    const m = await this.cliente.mercado(this.epic(symbol));
+    const medio = (m.bid + m.ask) / 2;
+    return { commission: (m.spread / 2) * (stake / medio), spot: medio };
+  }
+
+  private async posiciones(): Promise<PosicionIg[]> {
+    const r = await fetch(`${this.cliente.base}/positions`, { headers: this.cabeceras("2") });
+    if (!r.ok) throw new Error(`IG positions ${r.status}`);
+    const j = (await r.json()) as { positions: Array<Record<string, any>> };
+    return (j.positions ?? []).map((p) => ({
+      dealId: p.position.dealId,
+      epic: p.market.epic,
+      direccion: p.position.direction,
+      tamano: p.position.size,
+      nivelApertura: p.position.level,
+    }));
+  }
+
+  /** Delegado en el cliente, que es quien guarda CST y token de sesión. */
+  private cabeceras(version: string): Record<string, string> {
+    return this.cliente.cabeceras(version);
+  }
+
+  async placeOrder(order: Order): Promise<Position> {
+    const epic = this.epic(order.symbol);
+    const m = await this.cliente.mercado(epic);
+    if (m.estado !== "TRADEABLE") throw new Error(`${order.symbol} no operable ahora (${m.estado})`);
+
+    const cuerpo = {
+      epic,
+      expiry: "-",
+      direction: order.side === "buy" ? "BUY" : "SELL",
+      size: order.size,
+      orderType: "MARKET",
+      // El stop viaja CON la orden: si el proceso muere entre abrir y poner el
+      // stop, la posición se queda desprotegida en el bróker. Enviarlo junto es
+      // la única forma de que eso no pueda pasar.
+      stopLevel: order.stopPrice,
+      guaranteedStop: false,
+      forceOpen: true,
+      currencyCode: this.currency || "EUR",
+    };
+
+    const r = await fetch(`${this.cliente.base}/positions/otc`, {
+      method: "POST",
+      headers: this.cabeceras("2"),
+      body: JSON.stringify(cuerpo),
+    });
+    const j = (await r.json().catch(() => ({}))) as Record<string, any>;
+    if (!r.ok) throw new Error(`IG orden ${r.status}: ${j.errorCode ?? ""}`);
+
+    // IG confirma en dos pasos: la orden devuelve una referencia y hay que
+    // consultar si acabó aceptada. Dar por buena la referencia sería registrar
+    // como abierta una posición que el bróker rechazó.
+    const conf = await fetch(`${this.cliente.base}/confirms/${j.dealReference}`, { headers: this.cabeceras("1") });
+    const c = (await conf.json().catch(() => ({}))) as Record<string, any>;
+    if (c.dealStatus !== "ACCEPTED") {
+      throw new Error(`IG rechazó la orden: ${c.reason ?? "motivo desconocido"}`);
+    }
+
+    return {
+      id: c.dealId,
+      symbol: order.symbol,
+      side: order.side,
+      size: c.size ?? order.size,
+      entryPrice: c.level ?? order.entryPrice,
+      stopPrice: order.stopPrice,
+      riskAmount: order.riskAmount,
+      correlationGroup: order.correlationGroup,
+    };
+  }
+
+  /** P&L vivo de una posición abierta, en moneda de cuenta. */
+  async contractPnl(dealId: string): Promise<{ profit: number; currentSpot: number }> {
+    const abiertas = await this.posiciones();
+    const p = abiertas.find((x) => x.dealId === dealId);
+    if (!p) throw new Error(`Posición IG desconocida: ${dealId}`);
+    const m = await this.cliente.mercado(p.epic);
+    // Se valora al precio al que se PODRÍA cerrar, no al punto medio: cerrar un
+    // largo se hace contra el bid. Usar el medio infla el P&L sistemáticamente.
+    const salida = p.direccion === "BUY" ? m.bid : m.ask;
+    const delta = p.direccion === "BUY" ? salida - p.nivelApertura : p.nivelApertura - salida;
+    return { profit: delta * p.tamano, currentSpot: (m.bid + m.ask) / 2 };
+  }
+
+  async closePosition(dealId: string): Promise<void> {
+    const abiertas = await this.posiciones();
+    const p = abiertas.find((x) => x.dealId === dealId);
+    if (!p) return; // ya no existe: cerrarla otra vez no es un error
+
+    const r = await fetch(`${this.cliente.base}/positions/otc`, {
+      method: "POST",
+      headers: { ...this.cabeceras("1"), "_method": "DELETE" },
+      body: JSON.stringify({
+        dealId,
+        direction: p.direccion === "BUY" ? "SELL" : "BUY",
+        size: p.tamano,
+        orderType: "MARKET",
+      }),
+    });
+    if (!r.ok) {
+      const j = (await r.json().catch(() => ({}))) as Record<string, any>;
+      throw new Error(`IG cierre ${r.status}: ${j.errorCode ?? ""}`);
+    }
+  }
+
+  /**
+   * Reconciliación: qué dice el bróker que tenemos abierto. El ciclo debe
+   * comparar esto con su estado local y parar si no cuadran (Fase 9 del brief:
+   * LOCAL_POSITION vs BROKER_POSITION).
+   */
+  async posicionesDelBroker(): Promise<Array<{ id: string; symbol: string; side: "buy" | "sell"; size: number; entryPrice: number }>> {
+    const epicASimbolo = Object.fromEntries(Object.entries(EPIC_POR_SIMBOLO).map(([s, e]) => [e, s]));
+    return (await this.posiciones()).map((p) => ({
+      id: p.dealId,
+      symbol: epicASimbolo[p.epic] ?? p.epic,
+      side: p.direccion === "BUY" ? "buy" : "sell",
+      size: p.tamano,
+      entryPrice: p.nivelApertura,
+    }));
+  }
+}

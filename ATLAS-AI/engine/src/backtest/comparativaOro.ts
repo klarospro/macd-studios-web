@@ -20,6 +20,14 @@ export interface Barra {
   high: number;
   low: number;
   close: number;
+  /**
+   * Diferencia ask−bid MEDIDA en esta vela, en unidades de precio. Cuando está
+   * presente sustituye a `costeBps`: se cobra medio spread por lado, que es lo
+   * que cuesta cruzar desde el punto medio. Sin este dato el backtest usa un
+   * coste asumido, y la diferencia no es menor — los 10 bps que se asumían con
+   * Deriv resultaron ser 1-2 bps reales en IG.
+   */
+  spread?: number;
 }
 
 export interface ConfigBacktest {
@@ -94,6 +102,19 @@ export interface Resultado {
 const coste = (nocional: number, bps: number) => Math.abs(nocional) * (bps / 10_000);
 
 /**
+ * Coste de cruzar el mercado una vez, para un tamaño dado.
+ *
+ * Con spread medido: medio spread por lado × tamaño. Es el coste real de pasar
+ * del punto medio al precio ejecutable. Sin él, se cae al coste asumido en bps.
+ */
+function costeDeCruce(barra: Barra, size: number, cfg: ConfigBacktest): number {
+  if (barra.spread != null && Number.isFinite(barra.spread) && barra.spread >= 0) {
+    return (barra.spread / 2) * Math.abs(size);
+  }
+  return coste(barra.close * size, cfg.costeBps);
+}
+
+/**
  * Simula una estrategia discreta (entrada, stop, objetivo, giro).
  *
  * Reglas deliberadas, porque cada una puede inflar el resultado si se elige mal:
@@ -122,7 +143,7 @@ export function simular(nombre: string, barras: Barra[], estrategia: Estrategia,
       if (tocaStop || tocaTp) {
         const precioSalida = tocaStop ? abierta.stop : abierta.tp!;
         const bruto = (abierta.side === "buy" ? precioSalida - abierta.entrada : abierta.entrada - precioSalida) * abierta.size;
-        const c = coste(precioSalida * abierta.size, cfg.costeBps);
+        const c = costeDeCruce(barra, abierta.size, cfg);
         equity += bruto - c;
         costesTotales += c;
         operaciones.push({
@@ -139,7 +160,7 @@ export function simular(nombre: string, barras: Barra[], estrategia: Estrategia,
     // 2. Giro: la estrategia quiere el lado contrario al que tenemos.
     if (abierta && intencion && intencion.side !== abierta.side) {
       const bruto = (abierta.side === "buy" ? barra.close - abierta.entrada : abierta.entrada - barra.close) * abierta.size;
-      const c = coste(barra.close * abierta.size, cfg.costeBps);
+      const c = costeDeCruce(barra, abierta.size, cfg);
       equity += bruto - c;
       costesTotales += c;
       operaciones.push({
@@ -160,7 +181,7 @@ export function simular(nombre: string, barras: Barra[], estrategia: Estrategia,
         const sizeMaximo = (equity * cfg.apalancamientoMax) / barra.close;
         const size = Math.min(riesgo / distancia, sizeMaximo);
         if (size > 0) {
-          const c = coste(barra.close * size, cfg.costeBps);
+          const c = costeDeCruce(barra, size, cfg);
           equity -= c;
           costesTotales += c;
           abierta = { side: intencion.side, entrada: barra.close, stop: intencion.stopPrice, tp: intencion.takeProfit, size, idx: t };
@@ -187,7 +208,7 @@ export function simular(nombre: string, barras: Barra[], estrategia: Estrategia,
   if (abierta) {
     const ultima = barras[barras.length - 1]!;
     const bruto = (abierta.side === "buy" ? ultima.close - abierta.entrada : abierta.entrada - ultima.close) * abierta.size;
-    const c = coste(ultima.close * abierta.size, cfg.costeBps);
+    const c = costeDeCruce(ultima, abierta.size, cfg);
     equity += bruto - c;
     costesTotales += c;
     operaciones.push({

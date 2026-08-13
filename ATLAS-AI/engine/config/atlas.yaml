@@ -103,6 +103,12 @@ esma:
     # Cripto (2)
     cryBTCUSD: cripto
     cryETHUSD: cripto
+    # Índices vía IG (2). En Deriv daban precio pero RECHAZABAN la orden
+    # (medido 2026-08-11); en IG son operables y se verificaron contra la cuenta
+    # demo Z6DHEP el 2026-08-13. Sin esta clasificación el gate los rechaza por
+    # diseño: nunca se asume un apalancamiento permisivo por defecto.
+    US30: indice_mayor
+    NASDAQ: indice_mayor
 
 # -----------------------------------------------------------------------------
 # TAREA 5 — Riesgo común a los tres sleeves
@@ -110,8 +116,13 @@ esma:
 riesgo:
   # Riesgo por operación como fracción del CAPITAL DEL SLEEVE (no del total).
   riesgo_por_trade_pct:
-    min: 0.0025 # 0.25%
-    max: 0.005 # 0.50%
+    # Subido de 0.25-0.50% a 0.50-1.00% el 2026-08-13, a petición explícita:
+    # estamos en DEMO y hace falta que la muestra de operaciones sea grande y
+    # significativa. Con 0.25% muchas señales generaban posiciones tan pequeñas
+    # que el resultado quedaba dentro del ruido. NO subir esto en real sin
+    # rehacer el walk-forward: dobla el drawdown esperado.
+    min: 0.005 # 0.50%
+    max: 0.01 # 1.00%
 
   # Rechazar cualquier señal si el spread supera este múltiplo del spread
   # normal del activo. Aplica a los tres sleeves.

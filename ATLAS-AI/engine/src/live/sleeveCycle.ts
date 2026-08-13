@@ -1,6 +1,8 @@
 import { fileURLToPath } from "node:url";
 import { DerivDemoAdapter, derivConfigFromEnv } from "../broker/derivDemoAdapter";
 import { PaperDerivAdapter } from "../broker/paperDerivAdapter";
+import { EPIC_POR_SIMBOLO, IgAdapter } from "../broker/igAdapter";
+import { igConfigDesdeEnv } from "../broker/igClient";
 import { AtlasConfig, cargarConfig, SleeveId, SLEEVE_IDS } from "../config/sleeveConfig";
 import { fechaUtc, Vela } from "../domain/bars";
 import { crearSleeveTradeLog, SleeveTrade } from "../audit/sleeveTrade";
@@ -58,16 +60,23 @@ const EXECUTE = process.argv.includes("--execute");
  * en el panel sería la peor forma posible de equivocarse.
  */
 const PAPER = process.argv.includes("--paper");
-const VENUE_ID = PAPER ? "deriv-paper" : "deriv-demo";
+/**
+ * `--ig`: opera contra IG Markets en vez de Deriv. Es el venue que sustituye a
+ * Deriv tras el incidente del 2026-08-12 — bid/ask reales, índices operables y
+ * volumen por vela. La cuenta va en EUR, no en USD: eso importa para el neteo
+ * de exposición por divisa.
+ */
+const IG = process.argv.includes("--ig");
+const VENUE_ID = IG ? "ig-demo" : PAPER ? "deriv-paper" : "deriv-demo";
 const RUNTIME = new URL("../../runtime/", import.meta.url);
-const ESTADO_PATH = fileURLToPath(new URL(PAPER ? "sleeves-paper.json" : "sleeves.json", RUNTIME));
+const ESTADO_PATH = fileURLToPath(new URL(IG ? "sleeves-ig.json" : PAPER ? "sleeves-paper.json" : "sleeves.json", RUNTIME));
 const CUENTA_PAPEL_PATH = fileURLToPath(new URL("paper.json", RUNTIME));
 
 /**
  * Lo que el ciclo necesita de un bróker. `DerivDemoAdapter` (real) y
  * `PaperDerivAdapter` (simulado) lo cumplen: el ciclo no distingue cuál lleva.
  */
-type AdaptadorCiclo = DerivDemoAdapter | PaperDerivAdapter;
+type AdaptadorCiclo = DerivDemoAdapter | PaperDerivAdapter | IgAdapter;
 
 const audit = createAuditLog(fileURLToPath(new URL("audit.jsonl", RUNTIME)));
 const tradeLog = crearSleeveTradeLog(fileURLToPath(new URL("sleeve-trades.jsonl", RUNTIME)));
@@ -76,7 +85,14 @@ const tradeLog = crearSleeveTradeLog(fileURLToPath(new URL("sleeve-trades.jsonl"
 function instrumentosDe(config: AtlasConfig, sleeve: SleeveId): string[] {
   const bloque = config[sleeve] as Record<string, any>;
   const declarados = bloque.instrumentos as string[] | undefined;
-  if (declarados && declarados.length > 0) return declarados;
+  const universo = declarados && declarados.length > 0 ? declarados : null;
+  // En IG solo se opera lo que tiene epic VERIFICADO contra la cuenta. Un
+  // símbolo de Deriv sin equivalente en IG no se intenta a ciegas.
+  if (IG) {
+    const conEpic = Object.keys(EPIC_POR_SIMBOLO);
+    return universo ? universo.filter((s) => conEpic.includes(s)) : conEpic;
+  }
+  if (universo) return universo;
   // Sin lista explícita, opera todo lo clasificado (fallo seguro: si no está
   // en `clase_por_simbolo`, el gate lo rechaza igualmente por ESMA).
   return Object.keys(config.esma.clasePorSimbolo);
@@ -145,6 +161,14 @@ function topeDivisa(config: AtlasConfig, equity: number): number {
   return capitalMayor * config.riesgo.riesgoPorTradePct.max * MAX_POSICIONES_EQUIVALENTES_POR_DIVISA;
 }
 
+/**
+ * Divisa de la cuenta. IG opera en EUR y Deriv en USD; aplicar el tope
+ * ampliado a la divisa equivocada dejaría la de verdad sin protección.
+ */
+function divisaCuenta(): string {
+  return IG ? "EUR" : "USD";
+}
+
 /** Todas las posiciones abiertas de la cartera, de todos los sleeves. */
 function piernasAbiertas(estado: EstadoCartera): PiernaExpuesta[] {
   return SLEEVE_IDS.flatMap((id) =>
@@ -172,7 +196,7 @@ async function abrir(
     piernasAbiertas(estado),
     { symbol: orden.symbol, side: orden.side, riskAmount: orden.riskAmount },
     topePorDivisa,
-    { divisaCuenta: "USD" },
+    { divisaCuenta: divisaCuenta() },
   );
   if (!veredicto.permitido) {
     console.log(
@@ -523,11 +547,85 @@ async function vigilar(
   return { operable: decision.operable, simbolos: simbolos.length };
 }
 
+/**
+ * Una pasada completa de la cartera sobre el adaptador que se le pase.
+ *
+ * Extraída de `main` para que Deriv, el modo papel e IG compartan EXACTAMENTE
+ * la misma lógica de decisión. Si cada venue tuviera su copia, dos de ellas
+ * envejecerían mal y las comparaciones entre venues dejarían de significar nada.
+ */
+async function ejecutarCiclo(adapter: AdaptadorCiclo, config: AtlasConfig): Promise<void> {
+  const equity = await adapter.getEquity();
+  const ahoraEpoch = Math.floor(Date.now() / 1000);
+  const at = new Date(ahoraEpoch * 1000).toISOString();
+  const fecha = fechaUtc(ahoraEpoch);
+
+  const estado = cargarEstado(ESTADO_PATH, fecha, equity);
+  const { diaNuevo, semanaNueva } = rotarPeriodos(estado, fecha, equity);
+
+  const pnl = pnlCartera(estado);
+  console.log(
+    `Ciclo multi-sleeve · demo ${adapter.accountId} · equity $${equity.toFixed(2)} · ` +
+      `${EXECUTE ? "EJECUTAR" : "DRY-RUN"} · ${at}` +
+      `${diaNuevo ? " · día nuevo" : ""}${semanaNueva ? " · semana nueva" : ""}`,
+  );
+  console.log(
+    `  P&L día ${pnl.dia.toFixed(2)} (${((pnl.dia / equity) * 100).toFixed(2)}%) · ` +
+      `semana ${pnl.semana.toFixed(2)} (${((pnl.semana / equity) * 100).toFixed(2)}%)`,
+  );
+
+  // ANTES de intentar nada: ¿el bróker ofrece mercado? Un catálogo vacío no
+  // es "mercados cerrados" —un domingo el catálogo llega entero con
+  // exchange_is_open=0— sino el venue caído. Distinguirlo evita repetir el
+  // 2026-08-12: 17 horas rechazando órdenes y anotándolo como normalidad.
+  const salud = await vigilar(adapter, estado, at);
+  if (!salud.operable) {
+    // Sin catálogo no hay nada que decidir: 13 proposals condenadas a fallar
+    // cada 5 minutos solo ensucian el log y gastan cuota de la API.
+    await publicarParaPanel(adapter, estado, equity);
+    guardarEstado(ESTADO_PATH, estado);
+    return;
+  }
+
+  // El Sleeve C va primero: sus eventos definen de qué debe apartarse el B.
+  const minutosAEvento = await pasadaEventScalp(adapter, config, estado, equity, fecha, at, ahoraEpoch);
+  await pasadaIntradia(adapter, config, estado, equity, fecha, at, minutosAEvento);
+  await pasadaCore(adapter, config, estado, equity, fecha, at);
+
+  // Red de seguridad: si pese a todo dos sleeves acabaron en el mismo
+  // instrumento y dirección, se cierra el de menor prioridad.
+  for (const solape of detectarSolapamientos(config.cartera, estado.sleeves)) {
+    const posicion = estado.sleeves[solape.cerrar].openPositions.find((p) => p.id === solape.positionId);
+    if (posicion) {
+      console.log(`  solapamiento en ${solape.symbol} ${solape.side}: se cierra ${solape.cerrar}, se conserva ${solape.conservar}`);
+      await cerrar(adapter, estado, posicion, "solapamiento_entre_sleeves", at);
+    }
+  }
+
+  const abiertas = SLEEVE_IDS.map((id) => `${id} ${estado.sleeves[id].openPositions.length}`).join(" · ");
+  console.log(`  Posiciones abiertas: ${abiertas}`);
+
+  await publicarParaPanel(adapter, estado, equity);
+  guardarEstado(ESTADO_PATH, estado);
+}
+
 // ---------------------------------------------------------------------------
 async function main(): Promise<void> {
   const config = cargarConfig();
   if (config.modo !== "demo") {
     throw new Error("SEGURIDAD: atlas.yaml no está en modo demo. Fase 1 es solo demo.");
+  }
+
+  // IG es un venue completo por sí mismo: no necesita a Deriv ni para precios.
+  if (IG) {
+    const ig = new IgAdapter(igConfigDesdeEnv());
+    await ig.connect();
+    try {
+      await ejecutarCiclo(ig, config);
+    } finally {
+      await ig.disconnect();
+    }
+    return;
   }
 
   const real = new DerivDemoAdapter(derivConfigFromEnv());
@@ -546,58 +644,7 @@ async function main(): Promise<void> {
     : real;
 
   try {
-    const equity = await adapter.getEquity();
-    const ahoraEpoch = Math.floor(Date.now() / 1000);
-    const at = new Date(ahoraEpoch * 1000).toISOString();
-    const fecha = fechaUtc(ahoraEpoch);
-
-    const estado = cargarEstado(ESTADO_PATH, fecha, equity);
-    const { diaNuevo, semanaNueva } = rotarPeriodos(estado, fecha, equity);
-
-    const pnl = pnlCartera(estado);
-    console.log(
-      `Ciclo multi-sleeve · demo ${adapter.accountId} · equity $${equity.toFixed(2)} · ` +
-        `${EXECUTE ? "EJECUTAR" : "DRY-RUN"} · ${at}` +
-        `${diaNuevo ? " · día nuevo" : ""}${semanaNueva ? " · semana nueva" : ""}`,
-    );
-    console.log(
-      `  P&L día ${pnl.dia.toFixed(2)} (${((pnl.dia / equity) * 100).toFixed(2)}%) · ` +
-        `semana ${pnl.semana.toFixed(2)} (${((pnl.semana / equity) * 100).toFixed(2)}%)`,
-    );
-
-    // ANTES de intentar nada: ¿el bróker ofrece mercado? Un catálogo vacío no
-    // es "mercados cerrados" —un domingo el catálogo llega entero con
-    // exchange_is_open=0— sino el venue caído. Distinguirlo evita repetir el
-    // 2026-08-12: 17 horas rechazando órdenes y anotándolo como normalidad.
-    const salud = await vigilar(adapter, estado, at);
-    if (!salud.operable) {
-      // Sin catálogo no hay nada que decidir: 13 proposals condenadas a fallar
-      // cada 5 minutos solo ensucian el log y gastan cuota de la API.
-      await publicarParaPanel(adapter, estado, equity);
-      guardarEstado(ESTADO_PATH, estado);
-      return;
-    }
-
-    // El Sleeve C va primero: sus eventos definen de qué debe apartarse el B.
-    const minutosAEvento = await pasadaEventScalp(adapter, config, estado, equity, fecha, at, ahoraEpoch);
-    await pasadaIntradia(adapter, config, estado, equity, fecha, at, minutosAEvento);
-    await pasadaCore(adapter, config, estado, equity, fecha, at);
-
-    // Red de seguridad: si pese a todo dos sleeves acabaron en el mismo
-    // instrumento y dirección, se cierra el de menor prioridad.
-    for (const solape of detectarSolapamientos(config.cartera, estado.sleeves)) {
-      const posicion = estado.sleeves[solape.cerrar].openPositions.find((p) => p.id === solape.positionId);
-      if (posicion) {
-        console.log(`  solapamiento en ${solape.symbol} ${solape.side}: se cierra ${solape.cerrar}, se conserva ${solape.conservar}`);
-        await cerrar(adapter, estado, posicion, "solapamiento_entre_sleeves", at);
-      }
-    }
-
-    const abiertas = SLEEVE_IDS.map((id) => `${id} ${estado.sleeves[id].openPositions.length}`).join(" · ");
-    console.log(`  Posiciones abiertas: ${abiertas}`);
-
-    await publicarParaPanel(adapter, estado, equity);
-    guardarEstado(ESTADO_PATH, estado);
+    await ejecutarCiclo(adapter, config);
   } finally {
     await adapter.disconnect();
   }
