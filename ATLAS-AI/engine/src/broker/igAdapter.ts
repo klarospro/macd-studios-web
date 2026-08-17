@@ -415,7 +415,20 @@ export class IgAdapter {
     // consultar si acabó aceptada. Dar por buena la referencia sería registrar
     // como abierta una posición que el bróker rechazó.
     const conf = await fetch(`${this.cliente.base}/confirms/${j.dealReference}`, { headers: this.cabeceras("1") });
-    const c = (await conf.json().catch(() => ({}))) as Record<string, any>;
+    const crudo = await conf.text();
+    // Si la CONSULTA falla, hay que decirlo como tal. Tratarla como "orden
+    // rechazada sin motivo" mandaba al log un rechazo vacío —pasó con el US30
+    // el 2026-08-17— y dejaba sin saber si el problema era la orden o la
+    // consulta. Son dos fallos distintos y se arreglan distinto.
+    if (!conf.ok) {
+      throw new Error(`IG no confirmó la orden (${conf.status}): ${crudo.slice(0, 200)}`);
+    }
+    let c: Record<string, any> = {};
+    try {
+      c = JSON.parse(crudo) as Record<string, any>;
+    } catch {
+      throw new Error(`IG devolvió una confirmación ilegible: ${crudo.slice(0, 200)}`);
+    }
     if (c.dealStatus !== "ACCEPTED") {
       // El motivo va COMPLETO a propósito: un "UNKNOWN" a secas obliga a
       // depurar a ciegas contra el bróker, y ese fue el coste real de esta
