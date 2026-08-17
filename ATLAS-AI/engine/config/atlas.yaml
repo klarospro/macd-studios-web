@@ -168,7 +168,10 @@ riesgo:
   # Con 8 538 € en cuenta, 100 € es el 1,17% por operación. Sigue por debajo del
   # tope por bloque (2%), así que dos posiciones correlacionadas ya no caben:
   # es intencionado.
-  riesgo_fijo_por_operacion: 100
+  # Subido de 100 a 125 el 2026-08-17 por decisión de Moisés. El motivo es
+  # concreto y medido: con 100 € el US30 se quedaba a 21 € de poder entrar
+  # —su stop diario cuesta 103 £ (~121 €)— y quedaba fuera de la prueba.
+  riesgo_fijo_por_operacion: 125
 
   # Objetivo en múltiplos de R (R = lo que arriesgas). Con 8, arriesgar 100 €
   # busca 800 €. Decisión de Moisés 2026-08-17: "100 buscando 1000, 800 o 400".
