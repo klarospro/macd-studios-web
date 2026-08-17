@@ -230,7 +230,7 @@ export class IgClient {
    * encaja en el escalón del instrumento. Cada epic tiene el suyo, así que se
    * lee del bróker en vez de asumir uno.
    */
-  async mercado(epic: string): Promise<{ bid: number; ask: number; spread: number; estado: string; minTamano: number; divisas: string[] }> {
+  async mercado(epic: string): Promise<{ bid: number; ask: number; spread: number; estado: string; minTamano: number; divisas: string[]; valorPorPunto: number }> {
     const r = await fetch(`${this.base}/markets/${encodeURIComponent(epic)}`, { headers: this.cabeceras("3") });
     if (!r.ok) throw new Error(`IG market ${epic} ${r.status}`);
     const j = (await r.json()) as {
@@ -245,6 +245,11 @@ export class IgClient {
     // se le manda una que ese epic no ofrece. Estos cotizan en USD aunque la
     // cuenta esté en EUR.
     const divisas = ((j.instrument?.currencies ?? []) as Array<{ code: string }>).map((c) => c.code);
+    // Lo que se gana o se pierde por CADA punto de precio con tamaño 1. Es
+    // `lotSize`, y es el número que faltaba: sin él, "tamaño 0,1" en oro parece
+    // 0,1 onzas cuando son 10, y el riesgo real sale 57 veces mayor que el
+    // calculado (medido en la cuenta el 2026-08-17).
+    const lote = Number(j.instrument?.lotSize);
     return {
       bid,
       ask,
@@ -252,6 +257,7 @@ export class IgClient {
       estado: j.snapshot.marketStatus,
       minTamano: Number.isFinite(min) && min > 0 ? min : 1,
       divisas,
+      valorPorPunto: Number.isFinite(lote) && lote > 0 ? lote : 1,
     };
   }
 

@@ -268,6 +268,26 @@ export class IgAdapter {
   }
 
   /**
+   * Cuánto vale 1 unidad de la divisa de la CUENTA en la divisa del
+   * instrumento. La cuenta va en EUR y estos cuatro instrumentos liquidan en
+   * USD: sin convertir, el presupuesto de riesgo se aplicaría con un 16% de
+   * error permanente.
+   */
+  private async cambioDesdeCuenta(divisaInstrumento?: string): Promise<number> {
+    const cuenta = this.currency || "EUR";
+    if (!divisaInstrumento || divisaInstrumento === cuenta) return 1;
+    if (cuenta === "EUR" && divisaInstrumento === "USD") {
+      // El propio EUR/USD que ya operamos da el cambio. Viene en puntos
+      // (11575,6 = 1,15756), de ahí la escala.
+      const m = await this.cliente.mercado(EPIC_POR_SIMBOLO.frxEURUSD!);
+      return ((m.bid + m.ask) / 2) / 10_000;
+    }
+    // Fallo seguro: sin cambio conocido no se inventa uno. Un 1 aquí
+    // dimensionaría con la divisa equivocada y nadie se enteraría.
+    throw new Error(`sin tipo de cambio ${cuenta}->${divisaInstrumento}: no se dimensiona a ciegas`);
+  }
+
+  /**
    * Los `dealId` que el BRÓKER dice tener abiertos ahora mismo.
    *
    * Es la lista contra la que se concilia el estado del motor. El 2026-08-17 el
@@ -302,14 +322,28 @@ export class IgAdapter {
     const m = await this.cliente.mercado(epic);
     if (m.estado !== "TRADEABLE") throw new Error(`${order.symbol} no operable ahora (${m.estado})`);
 
-    // El tamaño se ajusta al escalón del instrumento SIEMPRE HACIA ABAJO. Nunca
-    // hacia arriba: redondear al alza gastaría más riesgo del que el gestor
-    // aprobó, que es justo lo que el gestor existe para impedir.
-    const size = ajustarTamano(order.size, m.minTamano);
+    // EL TAMAÑO SE CALCULA AQUÍ, no se hereda del motor.
+    //
+    // El motor razona en "dinero arriesgado", que es como se opera en Deriv.
+    // En IG el tamaño son CONTRATOS y cada instrumento tiene su valor por punto
+    // (`lotSize`): en oro vale 100, así que "0,1" no es 0,1 onzas sino 10. El
+    // 2026-08-17 eso abrió una posición que arriesgaba 807 $ creyendo que
+    // arriesgaba 14 $ —57 veces más— sobre una cuenta de 8 626 €. La conversión
+    // de unidades vive en el adaptador porque es el único que conoce al bróker.
+    const distancia = Math.abs(order.entryPrice - order.stopPrice);
+    if (!(distancia > 0)) throw new Error(`stop pegado al precio en ${order.symbol}: no se puede dimensionar`);
+
+    const riesgoEnDivisa = order.riskAmount * (await this.cambioDesdeCuenta(m.divisas[0]));
+    const bruto = riesgoEnDivisa / (distancia * m.valorPorPunto);
+    const size = ajustarTamano(bruto, m.minTamano);
+
     if (size < m.minTamano) {
+      // Se dice lo que costaría el lote mínimo: es el dato que hace falta para
+      // decidir si la cuenta da para este instrumento o no.
+      const riesgoMinimo = m.minTamano * distancia * m.valorPorPunto;
       throw new Error(
-        `el tamaño mínimo de IG (${m.minTamano}) excede el riesgo aprobado ` +
-          `(${order.size.toFixed(4)}) · no se opera`,
+        `el lote mínimo de IG (${m.minTamano}) arriesgaría ${riesgoMinimo.toFixed(0)} ${m.divisas[0] ?? ""} ` +
+          `y el presupuesto es ${riesgoEnDivisa.toFixed(0)} · no se opera`,
       );
     }
 
@@ -384,7 +418,12 @@ export class IgAdapter {
     // largo se hace contra el bid. Usar el medio infla el P&L sistemáticamente.
     const salida = p.direccion === "BUY" ? m.bid : m.ask;
     const delta = p.direccion === "BUY" ? salida - p.nivelApertura : p.nivelApertura - salida;
-    return { profit: delta * p.tamano, currentSpot: (m.bid + m.ask) / 2 };
+    // Con `valorPorPunto` y el cambio a la divisa de la cuenta. Sin las dos
+    // cosas el panel enseñaba 0,09 € donde IG cobraba 6,59 €: el operador
+    // miraba una cifra que no era la suya.
+    const enDivisa = delta * p.tamano * m.valorPorPunto;
+    const cambio = await this.cambioDesdeCuenta(m.divisas[0]).catch(() => 1);
+    return { profit: enDivisa / cambio, currentSpot: (m.bid + m.ask) / 2 };
   }
 
   async closePosition(dealId: string): Promise<void> {
