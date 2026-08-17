@@ -27,13 +27,28 @@ import { Vela } from "../domain/bars";
  * 2026-08-17. Pocos y conocidos, para poder controlar y probar de verdad lo que
  * hace el bot antes de ampliar. USD/JPY se retiró de esta lista.
  *
+ * Son los contratos MINI a propósito. Con los estándar, el lote mínimo de IG
+ * arriesgaba más que el presupuesto entero: en NASDAQ, 0,2 lotes con un stop
+ * diario se llevaban 87% de la cuenta, y el gestor de riesgo tenía que
+ * rechazarlos siempre. Medido el 2026-08-17 con 8 626 € en cuenta:
+ *
+ *   estándar         mini          coste de 1 punto con el lote mínimo
+ *   -------------    ----------    -----------------------------------
+ *   NASDAQ  IFD      IFM           20,00 $  ->  5,00 $
+ *   US30    IFD      IFM            2,00 $  ->  1,00 $
+ *   oro     CFDGC    CFM (10oz)    10,00 $  ->  1,00 $
+ *
+ * Con los mini, el oro cabe en el Core con su stop diario y los índices caben
+ * con stops cortos. No es un truco: es elegir el contrato del tamaño de la
+ * cuenta en vez de deformar la estrategia para que quepa en el contrato.
+ *
  * Añadir un símbolo aquí es añadirlo al bot: no se opera nada que no esté.
  */
 export const EPIC_POR_SIMBOLO: Record<string, string> = {
-  frxEURUSD: "CS.D.EURUSD.MINI.IP",
-  frxXAUUSD: "CS.D.CFDGOLD.CFDGC.IP",
-  US30: "IX.D.DOW.IFD.IP",
-  NASDAQ: "IX.D.NASDAQ.IFD.IP",
+  frxEURUSD: "CS.D.EURUSD.MINI.IP", // 0,10 $/punto con el lote mínimo
+  frxXAUUSD: "CS.D.CFDGOLD.CFM.IP", // Spot Gold Mini (10 oz) — 1,00 $ por cada $1
+  US30: "IX.D.DOW.IFM.IP", // Wall Street Cash ($2) — 1,00 $/punto
+  NASDAQ: "IX.D.NASDAQ.IFM.IP", // US Tech 100 Cash ($20) — 5,00 $/punto
 };
 
 /** Resolución de IG equivalente a un tamaño de vela en segundos. */

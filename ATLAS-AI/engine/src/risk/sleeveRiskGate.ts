@@ -258,11 +258,19 @@ export function evaluarSleeve(
 
   // --- Sizing sobre el capital del SLEEVE ---
   const capital = capitalDeSleeve(config.cartera, ctx.equityTotal, signal.sleeve);
-  const { min, max } = config.riesgo.riesgoPorTradePct;
   const escala = signal.escalaVolTarget === undefined ? 1 : Math.min(1, Math.max(0, signal.escalaVolTarget));
-  const fraccion = Math.min(max, Math.max(min, limites.riesgoPorTradePct)) * escala;
 
-  let riskAmount = capital * fraccion;
+  // El presupuesto sale de la ESTRATEGIA y se mide sobre el EQUITY TOTAL
+  // (decisión de Moisés, 2026-08-17): 2% para el Core —largos/semanales— y 2,5%
+  // para scalping. Antes era un % del capital del sleeve, y con la cuenta de
+  // 8 626 € eso daba 16-35 $ por operación: menos de lo que cuesta el lote
+  // mínimo de IG en oro o índices, así que el gestor los rechazaba siempre y el
+  // bot solo podía operar EUR/USD. El límite no protegía de nada, solo impedía
+  // probar la estrategia.
+  const presupuesto = config.riesgo.presupuestoDiarioPct;
+  const fraccion = (signal.sleeve === "core" ? presupuesto.semanal : presupuesto.scalping) * escala;
+
+  let riskAmount = ctx.equityTotal * fraccion;
   const disponible = presupuestoDisponible(config.cartera, ctx.equityTotal, estado);
   if (riskAmount > disponible) {
     // El margen ocioso de OTROS sleeves no está disponible (Tarea 1, regla 2).

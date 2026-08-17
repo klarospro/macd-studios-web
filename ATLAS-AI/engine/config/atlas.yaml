@@ -124,6 +124,28 @@ riesgo:
     min: 0.005 # 0.50%
     max: 0.01 # 1.00%
 
+  # ---------------------------------------------------------------------------
+  # Presupuesto de riesgo DIARIO por tipo de estrategia (fracción del equity).
+  # Decidido por Moisés el 2026-08-17: repartir el riesgo por estrategia, no
+  # solo por operación. Es el total que cada bloque puede poner en juego en una
+  # jornada; agotado, ese bloque no vuelve a entrar hasta mañana.
+  #
+  # ADVERTENCIA MEDIDA, no opinión: estos niveles son ~4x los que validó el
+  # walk-forward (0,5-1,0% por operación). Multiplican el drawdown esperado en
+  # la misma proporción; NO multiplican el retorno. El techo medido de esta
+  # estrategia fue ~7% anual, no 10-30% mensual. Son válidos para DEMO, donde el
+  # objetivo es acumular muestra rápido y medir acertividad. Antes de tocar
+  # dinero real hay que rehacer el walk-forward con estos números.
+  # ---------------------------------------------------------------------------
+  presupuesto_diario_pct:
+    scalping: 0.025 # 2,5% — sleeves intradía y eventscalp
+    semanal: 0.02 # 2,0% — sleeve core (largos / semanales)
+
+  # Tope de riesgo VIVO simultáneo por bloque. Un bloque es un grupo de cosas
+  # que se mueven juntas: la divisa (EUR, USD...), el oro y los índices. Impide
+  # que tres posiciones distintas sean en el fondo la misma apuesta.
+  tope_por_bloque_pct: 0.02 # 2,0% del equity
+
   # Rechazar cualquier señal si el spread supera este múltiplo del spread
   # normal del activo. Aplica a los tres sleeves.
   spread_max_x_normal: 1.5

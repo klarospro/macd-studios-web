@@ -43,6 +43,10 @@ export interface EsmaConfig {
 
 export interface RiesgoConfig {
   riesgoPorTradePct: { min: number; max: number };
+  /** Riesgo total que cada tipo de estrategia puede poner en juego en un día. */
+  presupuestoDiarioPct: { scalping: number; semanal: number };
+  /** Riesgo vivo simultáneo máximo en un mismo bloque correlacionado. */
+  topePorBloquePct: number;
   spreadMaxXNormal: number;
   spreadMuestrasMinimas: number;
 }
@@ -201,6 +205,15 @@ export function validarConfig(raw: unknown): AtlasConfig {
   const spreadMuestrasMinimas = numero(riesgoRaw.spread_muestras_minimas, "riesgo.spread_muestras_minimas");
   exigir(spreadMuestrasMinimas >= 1, "riesgo.spread_muestras_minimas debe ser >= 1");
 
+  // Presupuesto diario por estrategia y tope por bloque correlacionado.
+  const presRaw = riesgoRaw.presupuesto_diario_pct ?? {};
+  const presupuestoDiarioPct = {
+    scalping: fraccion(presRaw.scalping, "riesgo.presupuesto_diario_pct.scalping"),
+    semanal: fraccion(presRaw.semanal, "riesgo.presupuesto_diario_pct.semanal"),
+  };
+  const topePorBloquePct = fraccion(riesgoRaw.tope_por_bloque_pct, "riesgo.tope_por_bloque_pct");
+  exigir(topePorBloquePct > 0, "riesgo.tope_por_bloque_pct debe ser > 0");
+
   // --- Fase 1 (Tarea 7) ---
   const fase1Raw = doc.fase1 ?? {};
   const criteriosRaw = fase1Raw.criterios ?? {};
@@ -231,6 +244,8 @@ export function validarConfig(raw: unknown): AtlasConfig {
       riesgoPorTradePct: { min, max },
       spreadMaxXNormal,
       spreadMuestrasMinimas,
+      presupuestoDiarioPct,
+      topePorBloquePct,
     },
     fase1: { semanasDemo: numero(fase1Raw.semanas_demo, "fase1.semanas_demo"), criterios },
     core: doc.core ?? {},

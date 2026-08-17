@@ -142,13 +142,6 @@ function contexto(config: AtlasConfig, estado: EstadoCartera, equity: number, fe
 }
 
 /**
- * Cuántas operaciones a riesgo pleno puede acumular una misma divisa. Con 2, la
- * cartera puede apostar contra el yen por dos vías, no por tres. Ver
- * `exposicionDivisa.ts` para el caso real que motivó el límite.
- */
-const MAX_POSICIONES_EQUIVALENTES_POR_DIVISA = 2;
-
-/**
  * Marco temporal del sleeve Intradía y cuántas velas pedir.
  *
  * Con Deriv eran M5 y 5.000 velas porque el histórico era gratis. En IG cada
@@ -173,11 +166,12 @@ const VELAS_INTRADIA = IG ? 300 : 5000;
  * sin poder diversificar. Medido en la primera pasada con el límite activo.
  */
 function topeDivisa(config: AtlasConfig, equity: number): number {
-  // El riesgo por operación es un % del capital DEL SLEEVE, no del equity total
-  // (`atlas.yaml`: core 40%, intradía 30%, eventscalp 30%). Calcularlo sobre el
-  // equity daba un tope 2,5x demasiado ancho y el límite no llegaba a morder.
-  const capitalMayor = Math.max(...SLEEVE_IDS.map((id) => capitalDeSleeve(config.cartera, equity, id)));
-  return capitalMayor * config.riesgo.riesgoPorTradePct.max * MAX_POSICIONES_EQUIVALENTES_POR_DIVISA;
+  // Desde el 2026-08-17 sale DIRECTO de `riesgo.tope_por_bloque_pct` (2% del
+  // equity, decisión de Moisés). Antes se derivaba del riesgo por operación y
+  // del número de posiciones equivalentes, lo que hacía imposible responder a
+  // "¿cuánto puedo perder si el dólar se mueve en mi contra?" sin recalcularlo
+  // a mano. Un límite que el operador no puede leer de un vistazo no protege.
+  return equity * config.riesgo.topePorBloquePct;
 }
 
 /**

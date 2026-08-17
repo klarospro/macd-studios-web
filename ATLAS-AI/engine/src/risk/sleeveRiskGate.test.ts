@@ -56,44 +56,49 @@ function posicion(sleeve: SleevePosition["sleeve"], symbol: string, side: "buy" 
   };
 }
 
-describe("sleeveRiskGate · sizing sobre el capital del sleeve", () => {
-  it("dimensiona con el capital del SLEEVE, no con el equity total", () => {
-    // Core = 40% de 10.000 = 4.000. Riesgo 0,5% -> 20 USD (no 50).
+describe("sleeveRiskGate · presupuesto por estrategia", () => {
+  // Regla desde el 2026-08-17: el presupuesto lo fija la ESTRATEGIA y se mide
+  // sobre el equity total. Antes salía del capital del sleeve, y con la cuenta
+  // real (8 626 €) daba 16-35 $ por operación: menos que el lote mínimo de IG
+  // en oro o índices, así que esos instrumentos no podían operarse nunca.
+  it("el Core usa el presupuesto semanal sobre el EQUITY TOTAL", () => {
     const decision = evaluarSleeve(config, ctx(), senal(), LIMITES_CORE);
     expect(decision.approved).toBe(true);
-    if (decision.approved) expect(decision.order.riskAmount).toBeCloseTo(20, 9);
+    if (decision.approved) {
+      expect(decision.order.riskAmount).toBeCloseTo(10_000 * config.riesgo.presupuestoDiarioPct.semanal, 9);
+    }
   });
 
-  it("dos sleeves con la misma señal reciben riesgo distinto según su margen", () => {
+  it("scalping recibe MÁS presupuesto que el Core, no menos", () => {
     const core = evaluarSleeve(config, ctx(), senal({ sleeve: "core" }), LIMITES_CORE);
     const intradia = evaluarSleeve(config, ctx(), senal({ sleeve: "intradia", symbol: "frxGBPUSD" }), LIMITES_INTRADIA);
     expect(core.approved && intradia.approved).toBe(true);
     if (core.approved && intradia.approved) {
-      expect(core.order.riskAmount).toBeCloseTo(20, 9); // 0,5% de 4.000
-      expect(intradia.order.riskAmount).toBeCloseTo(15, 9); // 0,5% de 3.000
+      expect(core.order.riskAmount).toBeCloseTo(10_000 * config.riesgo.presupuestoDiarioPct.semanal, 9);
+      expect(intradia.order.riskAmount).toBeCloseTo(10_000 * config.riesgo.presupuestoDiarioPct.scalping, 9);
+      expect(intradia.order.riskAmount).toBeGreaterThan(core.order.riskAmount);
     }
   });
 
-  it("acota el riesgo por trade al rango del YAML aunque el sleeve pida más", () => {
+  it("el presupuesto sale del YAML, no de un literal en el código", () => {
+    // Subir el riesgo en `atlas.yaml` no debe romper este test: lo que se
+    // comprueba es que el gate obedece a la configuración.
     const decision = evaluarSleeve(config, ctx(), senal(), { riesgoPorTradePct: 0.5 });
     expect(decision.approved).toBe(true);
-    // Se lee el tope DEL YAML en vez de fijarlo aquí: lo que se comprueba es
-    // que el gate respeta la configuración, no que valga un número concreto.
-    // Con el literal, subir el riesgo en `atlas.yaml` rompía este test sin que
-    // hubiera ningún fallo real (ocurrió al pasarlo de 0,5% a 1,0%).
     if (decision.approved) {
-      expect(decision.order.riskAmount).toBeCloseTo(4_000 * config.riesgo.riesgoPorTradePct.max, 9);
+      expect(decision.order.riskAmount).toBeCloseTo(10_000 * config.riesgo.presupuestoDiarioPct.semanal, 9);
     }
   });
 
   it("el vol-target reduce el riesgo proporcionalmente y nunca lo amplifica", () => {
+    const pleno = 10_000 * config.riesgo.presupuestoDiarioPct.semanal;
     const reducido = evaluarSleeve(config, ctx(), senal({ escalaVolTarget: 0.5 }), LIMITES_CORE);
     expect(reducido.approved).toBe(true);
-    if (reducido.approved) expect(reducido.order.riskAmount).toBeCloseTo(10, 9);
+    if (reducido.approved) expect(reducido.order.riskAmount).toBeCloseTo(pleno / 2, 9);
 
     const amplificado = evaluarSleeve(config, ctx(), senal({ escalaVolTarget: 3 }), LIMITES_CORE);
     expect(amplificado.approved).toBe(true);
-    if (amplificado.approved) expect(amplificado.order.riskAmount).toBeCloseTo(20, 9);
+    if (amplificado.approved) expect(amplificado.order.riskAmount).toBeCloseTo(pleno, 9);
   });
 
   it("rechaza si el presupuesto del sleeve está agotado, aunque sobre margen en la cartera", () => {
