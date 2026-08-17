@@ -29,6 +29,12 @@ export interface Order {
   stopPrice: number;
   riskAmount: number;
   correlationGroup: string;
+  /**
+   * Precio de toma de beneficio, si la configuración fija un objetivo en R.
+   * Viaja CON la orden al bróker por la misma razón que el stop: si el proceso
+   * muere entre abrir y ponerlo, la posición se queda sin objetivo.
+   */
+  limitPrice?: number;
 }
 
 export interface AccountState {

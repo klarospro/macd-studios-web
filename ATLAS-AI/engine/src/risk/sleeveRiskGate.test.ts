@@ -61,44 +61,66 @@ describe("sleeveRiskGate · presupuesto por estrategia", () => {
   // sobre el equity total. Antes salía del capital del sleeve, y con la cuenta
   // real (8 626 €) daba 16-35 $ por operación: menos que el lote mínimo de IG
   // en oro o índices, así que esos instrumentos no podían operarse nunca.
-  it("el Core usa el presupuesto semanal sobre el EQUITY TOTAL", () => {
+  // Regla vigente: `riesgo.riesgo_fijo_por_operacion` manda sobre los
+  // porcentajes. "Arriesga 100 buscando 300" es una instrucción de cuánto
+  // perder, no de qué fracción del capital.
+  const RIESGO_PLENO = () =>
+    config.riesgo.riesgoFijoPorOperacion > 0
+      ? config.riesgo.riesgoFijoPorOperacion
+      : 10_000 * config.riesgo.presupuestoDiarioPct.semanal;
+
+  it("el riesgo fijo manda sobre el porcentaje cuando está configurado", () => {
     const decision = evaluarSleeve(config, ctx(), senal(), LIMITES_CORE);
     expect(decision.approved).toBe(true);
-    if (decision.approved) {
-      expect(decision.order.riskAmount).toBeCloseTo(10_000 * config.riesgo.presupuestoDiarioPct.semanal, 9);
-    }
+    if (decision.approved) expect(decision.order.riskAmount).toBeCloseTo(RIESGO_PLENO(), 9);
   });
 
-  it("scalping recibe MÁS presupuesto que el Core, no menos", () => {
+  it("con riesgo fijo, todos los sleeves arriesgan lo mismo por operación", () => {
     const core = evaluarSleeve(config, ctx(), senal({ sleeve: "core" }), LIMITES_CORE);
     const intradia = evaluarSleeve(config, ctx(), senal({ sleeve: "intradia", symbol: "frxGBPUSD" }), LIMITES_INTRADIA);
     expect(core.approved && intradia.approved).toBe(true);
     if (core.approved && intradia.approved) {
-      expect(core.order.riskAmount).toBeCloseTo(10_000 * config.riesgo.presupuestoDiarioPct.semanal, 9);
-      expect(intradia.order.riskAmount).toBeCloseTo(10_000 * config.riesgo.presupuestoDiarioPct.scalping, 9);
-      expect(intradia.order.riskAmount).toBeGreaterThan(core.order.riskAmount);
+      if (config.riesgo.riesgoFijoPorOperacion > 0) {
+        expect(core.order.riskAmount).toBeCloseTo(intradia.order.riskAmount, 9);
+      } else {
+        // Sin riesgo fijo, scalping recibe más presupuesto que el Core.
+        expect(intradia.order.riskAmount).toBeGreaterThan(core.order.riskAmount);
+      }
     }
   });
 
-  it("el presupuesto sale del YAML, no de un literal en el código", () => {
-    // Subir el riesgo en `atlas.yaml` no debe romper este test: lo que se
-    // comprueba es que el gate obedece a la configuración.
+  it("el riesgo sale del YAML, no de un literal en el código", () => {
     const decision = evaluarSleeve(config, ctx(), senal(), { riesgoPorTradePct: 0.5 });
     expect(decision.approved).toBe(true);
-    if (decision.approved) {
-      expect(decision.order.riskAmount).toBeCloseTo(10_000 * config.riesgo.presupuestoDiarioPct.semanal, 9);
-    }
+    if (decision.approved) expect(decision.order.riskAmount).toBeCloseTo(RIESGO_PLENO(), 9);
   });
 
-  it("el vol-target reduce el riesgo proporcionalmente y nunca lo amplifica", () => {
-    const pleno = 10_000 * config.riesgo.presupuestoDiarioPct.semanal;
+  it("el vol-target modula el riesgo por porcentaje, pero NO recorta el riesgo fijo", () => {
+    const fijo = config.riesgo.riesgoFijoPorOperacion > 0;
     const reducido = evaluarSleeve(config, ctx(), senal({ escalaVolTarget: 0.5 }), LIMITES_CORE);
     expect(reducido.approved).toBe(true);
-    if (reducido.approved) expect(reducido.order.riskAmount).toBeCloseTo(pleno / 2, 9);
+    if (reducido.approved) {
+      // Con riesgo fijo, "arriesga 100" significa 100. Aplicarle la escala lo
+      // dejaba en 47 € y el oro no cabía en su propio presupuesto.
+      expect(reducido.order.riskAmount).toBeCloseTo(fijo ? RIESGO_PLENO() : RIESGO_PLENO() / 2, 9);
+    }
 
     const amplificado = evaluarSleeve(config, ctx(), senal({ escalaVolTarget: 3 }), LIMITES_CORE);
     expect(amplificado.approved).toBe(true);
-    if (amplificado.approved) expect(amplificado.order.riskAmount).toBeCloseTo(pleno, 9);
+    if (amplificado.approved) expect(amplificado.order.riskAmount).toBeCloseTo(RIESGO_PLENO(), 9);
+  });
+
+  it("el objetivo se pone a N veces lo arriesgado, al lado correcto del precio", () => {
+    const r = config.riesgo.objetivoR;
+    const compra = evaluarSleeve(config, ctx(), senal({ side: "buy" }), LIMITES_CORE);
+    expect(compra.approved).toBe(true);
+    if (compra.approved && r > 0) {
+      const distancia = Math.abs(compra.order.entryPrice - compra.order.stopPrice);
+      expect(compra.order.limitPrice).toBeCloseTo(compra.order.entryPrice + distancia * r, 9);
+      // Un objetivo por DEBAJO del precio en una compra sería un stop, no un
+      // objetivo: se cerraría en pérdidas al instante.
+      expect(compra.order.limitPrice!).toBeGreaterThan(compra.order.entryPrice);
+    }
   });
 
   it("rechaza si el presupuesto del sleeve está agotado, aunque sobre margen en la cartera", () => {
@@ -116,20 +138,26 @@ describe("sleeveRiskGate · presupuesto por estrategia", () => {
 });
 
 describe("sleeveRiskGate · breakers", () => {
-  it("una pérdida del 2% en el día para TODA la cartera", () => {
-    const decision = evaluarSleeve(config, ctx({ pnlDiaCartera: -200 }), senal(), LIMITES_CORE);
+  // Los umbrales se LEEN del YAML. Con literales, subir los breakers para la
+  // demo rompía estos tests sin que hubiera ningún fallo real (pasó al
+  // relajarlos el 2026-08-17).
+  const PERDIDA_DIA = () => -10_000 * config.cartera.breakers.perdidaDiariaPct;
+  const PERDIDA_SEMANA = () => -10_000 * config.cartera.breakers.perdidaSemanalPct;
+
+  it("alcanzar la pérdida diaria configurada para TODA la cartera", () => {
+    const decision = evaluarSleeve(config, ctx({ pnlDiaCartera: PERDIDA_DIA() }), senal(), LIMITES_CORE);
     expect(decision.approved).toBe(false);
     if (!decision.approved) expect(decision.reason).toBe("breaker_cartera_diario");
   });
 
-  it("una pérdida del 5% en la semana para TODA la cartera", () => {
-    const decision = evaluarSleeve(config, ctx({ pnlSemanaCartera: -500 }), senal(), LIMITES_CORE);
+  it("alcanzar la pérdida semanal configurada para TODA la cartera", () => {
+    const decision = evaluarSleeve(config, ctx({ pnlSemanaCartera: PERDIDA_SEMANA() }), senal(), LIMITES_CORE);
     expect(decision.approved).toBe(false);
     if (!decision.approved) expect(decision.reason).toBe("breaker_cartera_semanal");
   });
 
   it("justo por debajo del umbral diario deja operar", () => {
-    const decision = evaluarSleeve(config, ctx({ pnlDiaCartera: -199.99 }), senal(), LIMITES_CORE);
+    const decision = evaluarSleeve(config, ctx({ pnlDiaCartera: PERDIDA_DIA() + 0.01 }), senal(), LIMITES_CORE);
     expect(decision.approved).toBe(true);
   });
 
@@ -324,7 +352,7 @@ describe("sleeveRiskGate · restricciones duras", () => {
     for (const sleeve of ["core", "intradia", "eventscalp"] as const) {
       const decision = evaluarSleeve(
         config,
-        ctx({ pnlDiaCartera: -250 }),
+        ctx({ pnlDiaCartera: -10_000 * config.cartera.breakers.perdidaDiariaPct * 1.25 }),
         senal({ sleeve, symbol: "frxEURUSD" }),
         LIMITES_CORE,
       );

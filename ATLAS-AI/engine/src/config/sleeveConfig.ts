@@ -47,6 +47,10 @@ export interface RiesgoConfig {
   presupuestoDiarioPct: { scalping: number; semanal: number };
   /** Riesgo vivo simultáneo máximo en un mismo bloque correlacionado. */
   topePorBloquePct: number;
+  /** Riesgo fijo por operación en moneda de cuenta. 0 = usar porcentajes. */
+  riesgoFijoPorOperacion: number;
+  /** Objetivo en múltiplos de R. 0 = sin objetivo fijo (salida por estrategia). */
+  objetivoR: number;
   spreadMaxXNormal: number;
   spreadMuestrasMinimas: number;
 }
@@ -213,6 +217,10 @@ export function validarConfig(raw: unknown): AtlasConfig {
   };
   const topePorBloquePct = fraccion(riesgoRaw.tope_por_bloque_pct, "riesgo.tope_por_bloque_pct");
   exigir(topePorBloquePct > 0, "riesgo.tope_por_bloque_pct debe ser > 0");
+  const riesgoFijoPorOperacion = numero(riesgoRaw.riesgo_fijo_por_operacion ?? 0, "riesgo.riesgo_fijo_por_operacion");
+  exigir(riesgoFijoPorOperacion >= 0, "riesgo.riesgo_fijo_por_operacion no puede ser negativo");
+  const objetivoR = numero(riesgoRaw.objetivo_r ?? 0, "riesgo.objetivo_r");
+  exigir(objetivoR >= 0, "riesgo.objetivo_r no puede ser negativo");
 
   // --- Fase 1 (Tarea 7) ---
   const fase1Raw = doc.fase1 ?? {};
@@ -246,6 +254,8 @@ export function validarConfig(raw: unknown): AtlasConfig {
       spreadMuestrasMinimas,
       presupuestoDiarioPct,
       topePorBloquePct,
+      riesgoFijoPorOperacion,
+      objetivoR,
     },
     fase1: { semanasDemo: numero(fase1Raw.semanas_demo, "fase1.semanas_demo"), criterios },
     core: doc.core ?? {},

@@ -230,7 +230,7 @@ export class IgClient {
    * encaja en el escalón del instrumento. Cada epic tiene el suyo, así que se
    * lee del bróker en vez de asumir uno.
    */
-  async mercado(epic: string): Promise<{ bid: number; ask: number; spread: number; estado: string; minTamano: number; divisas: string[]; valorPorPunto: number }> {
+  async mercado(epic: string): Promise<{ bid: number; ask: number; spread: number; estado: string; minTamano: number; divisas: string[]; valorPorPunto: number; escala: number }> {
     const r = await fetch(`${this.base}/markets/${encodeURIComponent(epic)}`, { headers: this.cabeceras("3") });
     if (!r.ok) throw new Error(`IG market ${epic} ${r.status}`);
     const j = (await r.json()) as {
@@ -250,6 +250,11 @@ export class IgClient {
     // 0,1 onzas cuando son 10, y el riesgo real sale 57 veces mayor que el
     // calculado (medido en la cuenta el 2026-08-17).
     const lote = Number(j.instrument?.lotSize);
+    // Cuánto hay que dividir el precio cotizado para obtener el real. EUR/USD
+    // MINI llega como 11575,6 (escala 10 000) y EUR/GBP MINI como 0,85489
+    // (escala 1). Asumir una sola escala dejaba el tipo de cambio en 0,0000855
+    // y el presupuesto de riesgo en cero.
+    const escala = Number(j.instrument?.scalingFactor);
     return {
       bid,
       ask,
@@ -258,6 +263,7 @@ export class IgClient {
       minTamano: Number.isFinite(min) && min > 0 ? min : 1,
       divisas,
       valorPorPunto: Number.isFinite(lote) && lote > 0 ? lote : 1,
+      escala: Number.isFinite(escala) && escala > 0 ? escala : 1,
     };
   }
 

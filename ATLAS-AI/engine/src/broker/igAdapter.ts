@@ -47,8 +47,22 @@ import { Vela } from "../domain/bars";
 export const EPIC_POR_SIMBOLO: Record<string, string> = {
   frxEURUSD: "CS.D.EURUSD.MINI.IP", // 0,10 $/punto con el lote mínimo
   frxXAUUSD: "CS.D.CFDGOLD.CFM.IP", // Spot Gold Mini (10 oz) — 1,00 $ por cada $1
-  US30: "IX.D.DOW.IFM.IP", // Wall Street Cash ($2) — 1,00 $/punto
-  NASDAQ: "IX.D.NASDAQ.IFM.IP", // US Tech 100 Cash ($20) — 5,00 $/punto
+  US30: "IX.D.DOW.IFS.IP", // Wall Street (£1) — 0,20 £/punto
+  NASDAQ: "IX.D.NASDAQ.IFS.IP", // US Tech 100 (£1) — 0,50 £/punto
+};
+
+/**
+ * Divisas en las que liquidan los instrumentos del universo. La cuenta va en
+ * EUR, así que sin estos cambios el presupuesto de riesgo se aplicaría con la
+ * divisa equivocada — y nadie se enteraría, porque la orden se acepta igual.
+ */
+const EPIC_CAMBIO: Record<string, { epic: string; escala: number }> = {
+  // La escala va EXPLÍCITA y medida contra la cuenta, no leída de
+  // `scalingFactor`: ese campo no describe lo mismo en todos los epics y
+  // fiarse de él dimensionó una orden de oro a 1409 contratos (IG la rechazó).
+  // EUR/USD llega como 11578,4 y EUR/GBP como 0,85489. Son datos verificados.
+  USD: { epic: "CS.D.EURUSD.MINI.IP", escala: 10_000 },
+  GBP: { epic: "CS.D.EURGBP.MINI.IP", escala: 1 },
 };
 
 /** Resolución de IG equivalente a un tamaño de vela en segundos. */
@@ -291,15 +305,21 @@ export class IgAdapter {
   private async cambioDesdeCuenta(divisaInstrumento?: string): Promise<number> {
     const cuenta = this.currency || "EUR";
     if (!divisaInstrumento || divisaInstrumento === cuenta) return 1;
-    if (cuenta === "EUR" && divisaInstrumento === "USD") {
-      // El propio EUR/USD que ya operamos da el cambio. Viene en puntos
-      // (11575,6 = 1,15756), de ahí la escala.
-      const m = await this.cliente.mercado(EPIC_POR_SIMBOLO.frxEURUSD!);
-      return ((m.bid + m.ask) / 2) / 10_000;
+    if (cuenta !== "EUR") {
+      throw new Error(`cuenta en ${cuenta}: solo hay cambios desde EUR`);
     }
+    const par = EPIC_CAMBIO[divisaInstrumento];
     // Fallo seguro: sin cambio conocido no se inventa uno. Un 1 aquí
     // dimensionaría con la divisa equivocada y nadie se enteraría.
-    throw new Error(`sin tipo de cambio ${cuenta}->${divisaInstrumento}: no se dimensiona a ciegas`);
+    if (!par) throw new Error(`sin tipo de cambio EUR->${divisaInstrumento}: no se dimensiona a ciegas`);
+    const m = await this.cliente.mercado(par.epic);
+    const cambio = ((m.bid + m.ask) / 2) / par.escala;
+    // Red de seguridad: un cambio disparatado significa que la escala cambió
+    // bajo nuestros pies. Antes que dimensionar con él, se para.
+    if (!(cambio > 0.1 && cambio < 10)) {
+      throw new Error(`tipo de cambio EUR->${divisaInstrumento} fuera de rango (${cambio}): no se opera`);
+    }
+    return cambio;
   }
 
   /**
@@ -372,6 +392,9 @@ export class IgAdapter {
       // stop, la posición se queda desprotegida en el bróker. Enviarlo junto es
       // la única forma de que eso no pueda pasar.
       stopLevel: order.stopPrice,
+      // El objetivo viaja con la orden por lo mismo que el stop: si el proceso
+      // muere, la toma de beneficio se queda puesta en el bróker.
+      ...(order.limitPrice !== undefined ? { limitLevel: order.limitPrice } : {}),
       guaranteedStop: false,
       forceOpen: true,
       // La divisa del INSTRUMENTO, no la de la cuenta. Mandar EUR en un epic

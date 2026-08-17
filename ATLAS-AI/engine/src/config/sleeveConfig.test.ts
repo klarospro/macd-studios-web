@@ -60,7 +60,7 @@ describe("sleeveConfig", () => {
     expect(() => validarConfig(sinBreaker)).toThrow(/red de seguridad/);
 
     const incoherente = docBase();
-    incoherente.cartera.breakers.perdida_diaria_pct = 0.08; // diaria > semanal
+    incoherente.cartera.breakers.perdida_diaria_pct = 0.99; // diaria > semanal
     expect(() => validarConfig(incoherente)).toThrow(/semanal/);
   });
 

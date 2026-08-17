@@ -214,6 +214,27 @@ export function comprobarSpread(config: AtlasConfig, signal: SleeveSignal): Slee
  * Evalúa una señal contra todo el aparato de riesgo y, si sobrevive, la
  * convierte en una orden dimensionada.
  */
+/**
+ * Precio de toma de beneficio a N veces lo arriesgado (N = `riesgo.objetivo_r`).
+ *
+ * R es la distancia al stop: si arriesgas 100 € y el objetivo es 3R, buscas
+ * 300 €. `undefined` cuando no hay objetivo configurado — entonces la salida la
+ * decide la estrategia (reversión de tendencia), que es como se validaron los
+ * backtests que tenemos.
+ */
+function objetivoDeR(config: AtlasConfig, signal: SleeveSignal, stopDistance: number): number | undefined {
+  const r = config.riesgo.objetivoR;
+  if (!(r > 0)) return undefined;
+  // EventScalp queda fuera por decisión de Moisés (2026-08-17), y la razón es
+  // aritmética: entra y sale en minutos alrededor de un dato macro. Un objetivo
+  // a 8R en esa ventana no se alcanza nunca, así que ponerlo equivale a quitarle
+  // la salida que sí funciona. Su cierre lo sigue decidiendo la estrategia.
+  if (signal.sleeve === "eventscalp") return undefined;
+  return signal.side === "buy"
+    ? signal.entryPrice + stopDistance * r
+    : signal.entryPrice - stopDistance * r;
+}
+
 export function evaluarSleeve(
   config: AtlasConfig,
   ctx: ContextoCartera,
@@ -270,7 +291,13 @@ export function evaluarSleeve(
   const presupuesto = config.riesgo.presupuestoDiarioPct;
   const fraccion = (signal.sleeve === "core" ? presupuesto.semanal : presupuesto.scalping) * escala;
 
-  let riskAmount = ctx.equityTotal * fraccion;
+  // El riesgo fijo, si está configurado, MANDA sobre el porcentaje: "arriesga
+  // 100 buscando 300" es una instrucción de cuánto perder, no de qué fracción
+  // del capital. Y es FIJO de verdad: el ajuste por volatilidad NO lo recorta.
+  // Aplicándolo, 100 € se quedaban en 47 € y el oro volvía a no caber en su
+  // propio presupuesto; quien pide arriesgar 100 espera arriesgar 100.
+  const fijo = config.riesgo.riesgoFijoPorOperacion;
+  let riskAmount = fijo > 0 ? fijo : ctx.equityTotal * fraccion;
   const disponible = presupuestoDisponible(config.cartera, ctx.equityTotal, estado);
   if (riskAmount > disponible) {
     // El margen ocioso de OTROS sleeves no está disponible (Tarea 1, regla 2).
@@ -310,6 +337,7 @@ export function evaluarSleeve(
       nocional: veredicto.nocional,
       apalancamientoUsado: veredicto.apalancamientoUsado,
       setupId: signal.setupId,
+      limitPrice: objetivoDeR(config, signal, stopDistance),
     },
   };
 }

@@ -43,9 +43,18 @@ cartera:
   prioridad_cierre: [eventscalp, intradia, core]
 
   # Circuit breakers de CARTERA (Tarea 5). Fracción sobre el equity total.
+  #
+  # Subidos el 2026-08-17 a petición explícita de Moisés: "no te frenes por el
+  # riesgo aunque se pierda, son pruebas". Con 100 € por operación sobre 8 537 €
+  # (1,17% cada una), los valores anteriores (2% día / 5% semana) paraban el bot
+  # tras DOS pérdidas y no dejaban acumular muestra suficiente para medir nada.
+  #
+  # Siguen existiendo a propósito: son la diferencia entre una demo que se puede
+  # analizar y una cuenta a cero. Con 6% diario caben ~5 pérdidas seguidas.
+  # ESTOS NÚMEROS SON DE DEMO. En real hay que volver a 2%/5%.
   breakers:
-    perdida_diaria_pct: 0.02 # -2% en el día -> pausa TODA la cartera hasta mañana
-    perdida_semanal_pct: 0.05 # -5% en la semana -> pausa semanal
+    perdida_diaria_pct: 0.06 # -6% en el día -> pausa TODA la cartera hasta mañana
+    perdida_semanal_pct: 0.12 # -12% en la semana -> pausa semanal
 
 # -----------------------------------------------------------------------------
 # TAREA 5 — Límites regulatorios ESMA (España)
@@ -144,7 +153,36 @@ riesgo:
   # Tope de riesgo VIVO simultáneo por bloque. Un bloque es un grupo de cosas
   # que se mueven juntas: la divisa (EUR, USD...), el oro y los índices. Impide
   # que tres posiciones distintas sean en el fondo la misma apuesta.
-  tope_por_bloque_pct: 0.02 # 2,0% del equity
+  # Subido de 2% a 8% el 2026-08-17: con 100 € por operación (1,17% del equity),
+  # el 2% dejaba entrar UNA sola posición por bloque y bloqueaba el resto — no
+  # protegía, impedía probar. Con 8% caben ~6 posiciones del mismo bloque.
+  tope_por_bloque_pct: 0.08 # 8,0% del equity
+
+  # Riesgo FIJO por operación, en moneda de cuenta (EUR). Decisión de Moisés
+  # 2026-08-17: "arriesga 100 buscando 300-500".
+  #
+  # Cuando está puesto, manda sobre los porcentajes de arriba: cada entrada
+  # arriesga esta cantidad, ni más ni menos, y el tamaño se calcula para que así
+  # sea. Ponerlo a 0 vuelve al reparto por porcentaje.
+  #
+  # Con 8 538 € en cuenta, 100 € es el 1,17% por operación. Sigue por debajo del
+  # tope por bloque (2%), así que dos posiciones correlacionadas ya no caben:
+  # es intencionado.
+  riesgo_fijo_por_operacion: 100
+
+  # Objetivo en múltiplos de R (R = lo que arriesgas). Con 8, arriesgar 100 €
+  # busca 800 €. Decisión de Moisés 2026-08-17: "100 buscando 1000, 800 o 400".
+  # Cambiar este número es lo único que hace falta: 10 -> 1 000 €, 4 -> 400 €.
+  #
+  # El objetivo viaja CON la orden como limit del bróker: si el proceso muere,
+  # la toma de beneficio sigue puesta en IG.
+  #
+  # SIN VALIDAR, y conviene saber en qué dirección: un objetivo ALTO encaja
+  # mejor con seguir tendencias que uno bajo —dejar correr al ganador es de
+  # donde sale el dinero—, pero la mayoría de operaciones NO llegarán a 8R. Se
+  # gana poco y muchas veces, se pierde 100 € muchas más veces, y el resultado
+  # depende de que los pocos aciertos grandes lleguen. Es lo que mide la demo.
+  objetivo_r: 8
 
   # Rechazar cualquier señal si el spread supera este múltiplo del spread
   # normal del activo. Aplica a los tres sleeves.
