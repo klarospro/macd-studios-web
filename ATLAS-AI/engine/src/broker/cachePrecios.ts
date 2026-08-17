@@ -87,6 +87,64 @@ export class CachePrecios {
     return ahoraSeg - ultima.epoch >= periodo * 1.1;
   }
 
+  /**
+   * Anota que el bróker ha dicho "sin cuota de histórico".
+   *
+   * Sin esto, el ciclo volvía a pedir histórico cada 15 minutos: 962 peticiones
+   * en cuatro días, todas rechazadas, sin dejar que la cuota se recuperara
+   * nunca. La cuota de IG es SEMANAL, así que reintentar cada pocas horas
+   * basta y sobra.
+   */
+  marcarCuotaAgotada(ahoraSeg = Math.floor(Date.now() / 1000)): void {
+    const r = join(this.raiz, "_cuota.json");
+    mkdirSync(dirname(r), { recursive: true });
+    writeFileSync(r, JSON.stringify({ agotadaEn: ahoraSeg }), "utf8");
+  }
+
+  /** ¿Seguimos en el periodo de espera tras un "sin cuota"? */
+  cuotaEnCooldown(esperaSeg = 6 * 3600, ahoraSeg = Math.floor(Date.now() / 1000)): boolean {
+    const r = join(this.raiz, "_cuota.json");
+    if (!existsSync(r)) return false;
+    try {
+      const { agotadaEn } = JSON.parse(readFileSync(r, "utf8")) as { agotadaEn: number };
+      return ahoraSeg - agotadaEn < esperaSeg;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Reagrupa una serie fina en velas de un periodo mayor (M15 → DAY).
+   *
+   * Existe para que la serie que el bot graba solo (siempre en M15) sirva
+   * también al sleeve Core, que razona en velas diarias. El cierre resultante
+   * es la última observación de la jornada: un cierre diario legítimo.
+   *
+   * OJO: máximo y mínimo salen de las muestras tomadas, no del rango real del
+   * mercado. Solo se debe usar donde importe el CIERRE (ver `dailyCloses`).
+   */
+  static agrupar(velas: VelaCache[], periodoDestino: number): VelaCache[] {
+    const porBloque = new Map<number, VelaCache>();
+    for (const v of velas) {
+      const inicio = Math.floor(v.epoch / periodoDestino) * periodoDestino;
+      const previa = porBloque.get(inicio);
+      porBloque.set(
+        inicio,
+        previa
+          ? {
+              epoch: inicio,
+              open: previa.open,
+              high: Math.max(previa.high, v.high),
+              low: Math.min(previa.low, v.low),
+              close: v.close,
+              spread: v.spread ?? previa.spread,
+            }
+          : { ...v, epoch: inicio },
+      );
+    }
+    return [...porBloque.values()].sort((a, b) => a.epoch - b.epoch);
+  }
+
   /** Cuántas velas pedir para tapar el hueco, sin traer de más. */
   velasQueFaltan(symbol: string, resolucion: string, minimo: number, ahoraSeg = Math.floor(Date.now() / 1000)): number {
     const velas = this.leer(symbol, resolucion);

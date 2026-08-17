@@ -101,3 +101,43 @@ describe("CachePrecios", () => {
     expect(c.leer("NO_EXISTE", "DAY")).toEqual([]);
   });
 });
+
+describe("cuota agotada", () => {
+  // El fallo real del 13 al 17 de agosto: 962 peticiones de histórico
+  // rechazadas seguidas, una cada 15 minutos, sin dejar respirar a la cuota.
+  it("tras un 'sin cuota' se espera antes de volver a pedir", () => {
+    const c = nuevaCache();
+    expect(c.cuotaEnCooldown(6 * 3600, AHORA)).toBe(false);
+    c.marcarCuotaAgotada(AHORA);
+    expect(c.cuotaEnCooldown(6 * 3600, AHORA + 3600)).toBe(true);
+  });
+
+  it("pasada la espera se vuelve a intentar", () => {
+    const c = nuevaCache();
+    c.marcarCuotaAgotada(AHORA);
+    expect(c.cuotaEnCooldown(6 * 3600, AHORA + 7 * 3600)).toBe(false);
+  });
+});
+
+describe("agrupar", () => {
+  // Lo que permite que el Core siga vivo sin cuota: las velas de 15 minutos
+  // que el bot graba solo se convierten en la jornada diaria.
+  it("convierte velas de 15 min en la jornada diaria, con el último cierre", () => {
+    const M15 = 900;
+    const inicioDia = Math.floor(AHORA / DIA) * DIA;
+    const finas = [
+      { epoch: inicioDia, open: 100, high: 100, low: 100, close: 100 },
+      { epoch: inicioDia + M15, open: 103, high: 103, low: 103, close: 103 },
+      { epoch: inicioDia + 2 * M15, open: 101, high: 101, low: 101, close: 101 },
+      { epoch: inicioDia + DIA, open: 105, high: 105, low: 105, close: 105 },
+    ];
+    const diarias = CachePrecios.agrupar(finas, DIA);
+    expect(diarias).toHaveLength(2);
+    expect(diarias[0]).toMatchObject({ epoch: inicioDia, open: 100, close: 101, high: 103, low: 100 });
+    expect(diarias[1]!.close).toBe(105);
+  });
+
+  it("una serie vacía no inventa velas", () => {
+    expect(CachePrecios.agrupar([], DIA)).toEqual([]);
+  });
+});

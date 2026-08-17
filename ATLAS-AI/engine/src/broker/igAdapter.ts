@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { CachePrecios, VelaCache } from "./cachePrecios";
+import { CachePrecios, VelaCache, segundosDeResolucion } from "./cachePrecios";
 import { GrabadorPrecios } from "./grabadorPrecios";
 import { IgClient, IgConfig, ResolucionIg, VelaIg } from "./igClient";
 import { Order, Position } from "../domain/types";
@@ -68,17 +68,34 @@ export class IgAdapter {
   }
 
   /**
-   * Velas servidas de caché, pidiendo al bróker SOLO lo que falta.
+   * Serie de velas: el histórico del bróker es la BASE, el precio vivo es el
+   * motor.
    *
-   * IG raciona 10.000 puntos de histórico por semana. Sin esto, el ciclo pedía
-   * 200 velas diarias por símbolo cada 5 minutos y agotaba la cuota semanal en
-   * minutos (medido: `exceeded-account-historical-data-allowance` a la primera
-   * pasada). Una vela diaria cambia una vez al día: pedirla 288 veces al día
-   * no aporta un solo dato nuevo.
+   * Rediseñado el 2026-08-17 tras cuatro días con el bot ciego. El diseño
+   * anterior trataba el histórico como la fuente de verdad y lo repedía en cada
+   * pasada; cuando IG contestó `exceeded-account-historical-data-allowance`
+   * (cuota SEMANAL agotada), el ciclo siguió pidiendo cada 15 minutos —962
+   * rechazos— y mientras tanto servía en silencio velas de hace dos días. Un
+   * motor que decide sobre precios rancios es peor que un motor parado.
+   *
+   * Ahora: se descarga histórico UNA vez para tener base, y a partir de ahí la
+   * serie se prolonga con lo que el bot observa en vivo en cada ciclo (el
+   * snapshot `/markets/{epic}` NO gasta cuota). La serie que ven las estrategias
+   * termina SIEMPRE en el precio de ahora mismo, sin depender de la cuota.
+   *
+   * @param permitirPropia velas propias solo donde importa el cierre. Ver
+   *   `intradayCandles`: su máximo/mínimo son de las muestras, no del mercado.
    */
-  private async velas(symbol: string, resolucion: ResolucionIg, minimo: number): Promise<VelaCache[]> {
+  private async velas(
+    symbol: string,
+    resolucion: ResolucionIg,
+    minimo: number,
+    permitirPropia = false,
+  ): Promise<VelaCache[]> {
     const epic = this.epic(symbol);
-    if (this.cache.necesitaRefresco(epic, resolucion, minimo)) {
+
+    // Al bróker solo se le molesta si falta base Y queda cuota que gastar.
+    if (this.cache.necesitaRefresco(epic, resolucion, minimo) && !this.cache.cuotaEnCooldown()) {
       const cuantas = this.cache.velasQueFaltan(epic, resolucion, minimo);
       try {
         const { velas } = await this.cliente.historial(epic, resolucion, cuantas);
@@ -91,21 +108,39 @@ export class IgAdapter {
           })),
         );
       } catch (e) {
-        // Cuota agotada o fallo de red: se sirve de lo que haya, y si el
-        // bróker nunca dio histórico de este símbolo, de la serie PROPIA que
-        // el grabador va acumulando con los precios de cada ciclo.
-        const guardadas = this.cache.leer(epic, resolucion);
-        if (guardadas.length > 0) {
-          console.log(`  aviso: histórico de ${symbol} servido de caché (${e instanceof Error ? e.message : e})`);
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg.includes("exceeded-account-historical-data-allowance")) {
+          // Se apunta y no se vuelve a pedir en horas. Insistir no devuelve la
+          // cuota: solo llena el log y esconde el problema.
+          this.cache.marcarCuotaAgotada();
+          console.log(`  sin cuota de histórico en IG · se sigue con la serie propia (reintento en 6 h)`);
         } else {
-          const propias = this.grabador.serie(epic);
-          if (propias.length === 0) throw e;
-          console.log(`  aviso: ${symbol} usa serie propia (${propias.length} velas grabadas, sin cuota)`);
-          return propias;
+          console.log(`  aviso: no se pudo refrescar ${symbol} (${msg})`);
         }
       }
     }
-    return this.cache.leer(epic, resolucion);
+
+    const base = this.cache.leer(epic, resolucion);
+    if (!permitirPropia) return base;
+
+    // La serie propia (M15) se reagrupa a la resolución pedida y se pega al
+    // final de la base. La base MANDA donde exista: sus velas son reales.
+    const periodo = segundosDeResolucion(resolucion);
+    const propias = CachePrecios.agrupar(this.grabador.serie(epic), periodo);
+    if (propias.length === 0) return base;
+    const finBase = base.length > 0 ? base[base.length - 1]!.epoch : -Infinity;
+    return [...base, ...propias.filter((v) => v.epoch > finBase)];
+  }
+
+  /**
+   * Cuánto hace que no entra un dato nuevo, en periodos de esa resolución.
+   * `null` si no hay serie. Lo usan los métodos públicos para negarse a
+   * decidir sobre precios viejos en vez de operar a ciegas.
+   */
+  private antiguedad(velas: VelaCache[], resolucion: ResolucionIg): number | null {
+    if (velas.length === 0) return null;
+    const periodo = segundosDeResolucion(resolucion);
+    return (Math.floor(Date.now() / 1000) - velas[velas.length - 1]!.epoch) / periodo;
   }
 
   private epic(symbol: string): string {
@@ -155,12 +190,41 @@ export class IgAdapter {
     return salida;
   }
 
+  /**
+   * Cierres diarios: base del bróker + jornadas que el bot ha cerrado él solo.
+   *
+   * Aquí SÍ vale la serie propia. El Core decide sobre cierres, y el cierre de
+   * la serie propia es la última observación real de la jornada — un cierre
+   * legítimo. Es lo que permite que el Core siga operando sin cuota.
+   */
   async dailyCloses(symbol: string, count: number): Promise<number[]> {
-    return (await this.velas(symbol, "DAY", count)).map((v) => v.close).slice(-count);
+    const v = await this.velas(symbol, "DAY", count, true);
+    const dias = this.antiguedad(v, "DAY");
+    // Un cierre diario de hace más de dos jornadas no describe este mercado.
+    if (dias === null || dias > 2) {
+      throw new Error(`sin cierres diarios frescos de ${symbol} (${dias === null ? "sin serie" : dias.toFixed(1) + " días"})`);
+    }
+    return v.map((x) => x.close).slice(-count);
   }
 
+  /**
+   * Velas intradía: SOLO las del bróker.
+   *
+   * La serie propia no sirve aquí y hay que decirlo en voz alta: se forma con
+   * una observación por ciclo, así que su máximo y su mínimo son los de las
+   * muestras, no los del mercado. Un ATR calculado sobre eso sale ridículamente
+   * pequeño y el tamaño de posición saldría enorme. Sin velas reales y frescas,
+   * este sleeve NO opera ese símbolo.
+   */
   async intradayCandles(symbol: string, granularity: number, count: number): Promise<Vela[]> {
-    const v = await this.velas(symbol, resolucionDe(granularity), count);
+    const resolucion = resolucionDe(granularity);
+    const v = await this.velas(symbol, resolucion, count);
+    const periodos = this.antiguedad(v, resolucion);
+    if (periodos === null || periodos > 3) {
+      throw new Error(
+        `sin velas intradía frescas de ${symbol} (${periodos === null ? "sin serie" : periodos.toFixed(0) + " periodos"})`,
+      );
+    }
     return v.slice(-count).map((x) => ({ epoch: x.epoch, open: x.open, high: x.high, low: x.low, close: x.close }));
   }
 
