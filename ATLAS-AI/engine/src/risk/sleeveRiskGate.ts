@@ -338,6 +338,7 @@ export function evaluarSleeve(
       apalancamientoUsado: veredicto.apalancamientoUsado,
       setupId: signal.setupId,
       limitPrice: objetivoDeR(config, signal, stopDistance),
+      riesgoMaximo: config.riesgo.riesgoMaximoPorOperacion,
     },
   };
 }

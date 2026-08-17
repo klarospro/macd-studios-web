@@ -30,6 +30,11 @@ export interface Order {
   riskAmount: number;
   correlationGroup: string;
   /**
+   * Techo absoluto de riesgo para esta orden. Si el lote mínimo del bróker
+   * cuesta más que `riskAmount` pero cabe aquí, se opera al mínimo.
+   */
+  riesgoMaximo?: number;
+  /**
    * Precio de toma de beneficio, si la configuración fija un objetivo en R.
    * Viaja CON la orden al bróker por la misma razón que el stop: si el proceso
    * muere entre abrir y ponerlo, la posición se queda sin objetivo.

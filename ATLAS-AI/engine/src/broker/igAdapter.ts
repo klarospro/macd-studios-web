@@ -368,18 +368,30 @@ export class IgAdapter {
     const distancia = Math.abs(order.entryPrice - order.stopPrice);
     if (!(distancia > 0)) throw new Error(`stop pegado al precio en ${order.symbol}: no se puede dimensionar`);
 
-    const riesgoEnDivisa = order.riskAmount * (await this.cambioDesdeCuenta(m.divisas[0]));
+    const cambio = await this.cambioDesdeCuenta(m.divisas[0]);
+    const riesgoEnDivisa = order.riskAmount * cambio;
     const bruto = riesgoEnDivisa / (distancia * m.valorPorPunto);
-    const size = ajustarTamano(bruto, m.minTamano);
+    let size = ajustarTamano(bruto, m.minTamano);
 
     if (size < m.minTamano) {
-      // Se dice lo que costaría el lote mínimo: es el dato que hace falta para
-      // decidir si la cuenta da para este instrumento o no.
+      // Hay instrumentos cuyo lote MÍNIMO ya cuesta más que el riesgo fijo y no
+      // se pueden operar más pequeños (NASDAQ: 0,5 lotes = ~220 £ con stop
+      // diario). Antes que dejarlos fuera de la prueba, se opera al mínimo —lo
+      // más pequeño que existe— siempre que quepa en el TECHO aprobado.
       const riesgoMinimo = m.minTamano * distancia * m.valorPorPunto;
-      throw new Error(
-        `el lote mínimo de IG (${m.minTamano}) arriesgaría ${riesgoMinimo.toFixed(0)} ${m.divisas[0] ?? ""} ` +
-          `y el presupuesto es ${riesgoEnDivisa.toFixed(0)} · no se opera`,
+      const techo = (order.riesgoMaximo ?? order.riskAmount) * cambio;
+      if (riesgoMinimo > techo) {
+        throw new Error(
+          `el lote mínimo de IG (${m.minTamano}) arriesgaría ${riesgoMinimo.toFixed(0)} ${m.divisas[0] ?? ""} ` +
+            `y el techo aprobado es ${techo.toFixed(0)} · no se opera`,
+        );
+      }
+      console.log(
+        `  aviso: ${order.symbol} va al lote mínimo (${m.minTamano}) · arriesga ` +
+          `${riesgoMinimo.toFixed(0)} ${m.divisas[0] ?? ""} en vez de ${riesgoEnDivisa.toFixed(0)}: ` +
+          `no existe tamaño menor en este instrumento`,
       );
+      size = m.minTamano;
     }
 
     const cuerpo = {

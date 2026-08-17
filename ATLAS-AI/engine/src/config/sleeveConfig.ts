@@ -49,6 +49,11 @@ export interface RiesgoConfig {
   topePorBloquePct: number;
   /** Riesgo fijo por operación en moneda de cuenta. 0 = usar porcentajes. */
   riesgoFijoPorOperacion: number;
+  /**
+   * Techo absoluto por operación. Permite operar instrumentos cuyo lote MÍNIMO
+   * cuesta más que el riesgo fijo, sin dejar que eso justifique cualquier cifra.
+   */
+  riesgoMaximoPorOperacion: number;
   /** Objetivo en múltiplos de R. 0 = sin objetivo fijo (salida por estrategia). */
   objetivoR: number;
   spreadMaxXNormal: number;
@@ -219,6 +224,14 @@ export function validarConfig(raw: unknown): AtlasConfig {
   exigir(topePorBloquePct > 0, "riesgo.tope_por_bloque_pct debe ser > 0");
   const riesgoFijoPorOperacion = numero(riesgoRaw.riesgo_fijo_por_operacion ?? 0, "riesgo.riesgo_fijo_por_operacion");
   exigir(riesgoFijoPorOperacion >= 0, "riesgo.riesgo_fijo_por_operacion no puede ser negativo");
+  const riesgoMaximoPorOperacion = numero(
+    riesgoRaw.riesgo_maximo_por_operacion ?? riesgoFijoPorOperacion,
+    "riesgo.riesgo_maximo_por_operacion",
+  );
+  exigir(
+    riesgoMaximoPorOperacion >= riesgoFijoPorOperacion,
+    "riesgo.riesgo_maximo_por_operacion no puede ser menor que el riesgo fijo",
+  );
   const objetivoR = numero(riesgoRaw.objetivo_r ?? 0, "riesgo.objetivo_r");
   exigir(objetivoR >= 0, "riesgo.objetivo_r no puede ser negativo");
 
@@ -255,6 +268,7 @@ export function validarConfig(raw: unknown): AtlasConfig {
       presupuestoDiarioPct,
       topePorBloquePct,
       riesgoFijoPorOperacion,
+      riesgoMaximoPorOperacion,
       objetivoR,
     },
     fase1: { semanasDemo: numero(fase1Raw.semanas_demo, "fase1.semanas_demo"), criterios },

@@ -173,6 +173,22 @@ riesgo:
   # —su stop diario cuesta 103 £ (~121 €)— y quedaba fuera de la prueba.
   riesgo_fijo_por_operacion: 125
 
+  # Techo absoluto por operación, en moneda de cuenta.
+  #
+  # Existe para un caso concreto: hay instrumentos cuyo LOTE MÍNIMO ya cuesta
+  # más que el riesgo fijo, y no se pueden operar más pequeños. El NASDAQ es
+  # uno: su lote mínimo (0,5) con stop diario arriesga ~220 £ (~257 €). Moisés
+  # lo aprobó el 2026-08-17 para que entre en la prueba.
+  #
+  # Cuando pasa eso se opera al lote mínimo —lo más pequeño que existe— siempre
+  # que no supere este techo. Nunca por encima: el techo es lo que impide que
+  # "el mínimo del bróker" se convierta en una excusa para cualquier cifra.
+  #
+  # 260 € sobre 8 536 € es el 3,0% en UNA operación. Es mucho, y es a propósito
+  # porque esto es demo y el objetivo es acumular muestra. En real este número
+  # baja a la vez que `riesgo_fijo_por_operacion`.
+  riesgo_maximo_por_operacion: 260
+
   # Objetivo en múltiplos de R (R = lo que arriesgas). Con 8, arriesgar 100 €
   # busca 800 €. Decisión de Moisés 2026-08-17: "100 buscando 1000, 800 o 400".
   # Cambiar este número es lo único que hace falta: 10 -> 1 000 €, 4 -> 400 €.
