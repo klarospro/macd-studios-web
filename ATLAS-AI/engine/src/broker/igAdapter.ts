@@ -22,9 +22,15 @@ import { Vela } from "../domain/bars";
  */
 
 /** Símbolo interno de Atlas → epic de IG. Verificados contra la cuenta Z6DHEP. */
+/**
+ * Universo operable en IG: CUATRO instrumentos, decidido por Moisés el
+ * 2026-08-17. Pocos y conocidos, para poder controlar y probar de verdad lo que
+ * hace el bot antes de ampliar. USD/JPY se retiró de esta lista.
+ *
+ * Añadir un símbolo aquí es añadirlo al bot: no se opera nada que no esté.
+ */
 export const EPIC_POR_SIMBOLO: Record<string, string> = {
   frxEURUSD: "CS.D.EURUSD.MINI.IP",
-  frxUSDJPY: "CS.D.USDJPY.MINI.IP",
   frxXAUUSD: "CS.D.CFDGOLD.CFDGC.IP",
   US30: "IX.D.DOW.IFD.IP",
   NASDAQ: "IX.D.NASDAQ.IFD.IP",
@@ -51,6 +57,22 @@ interface PosicionIg {
   direccion: "BUY" | "SELL";
   tamano: number;
   nivelApertura: number;
+}
+
+/**
+ * Ajusta un tamaño al escalón que admite el instrumento, redondeando HACIA
+ * ABAJO y con los decimales exactos del escalón.
+ *
+ * IG rechaza la orden completa —no la recorta— si el tamaño trae más decimales
+ * de los que admite el epic: `validation.number.too-many-decimal-places`. Y el
+ * redondeo va a la baja a propósito: al alza se abriría una posición mayor que
+ * la que autorizó el gestor de riesgo.
+ */
+export function ajustarTamano(tamano: number, escalon: number): number {
+  if (!(escalon > 0)) return tamano;
+  const decimales = (String(escalon).split(".")[1] ?? "").length;
+  const pasos = Math.floor(tamano / escalon + 1e-9);
+  return Number((pasos * escalon).toFixed(decimales));
 }
 
 export class IgAdapter {
@@ -245,6 +267,18 @@ export class IgAdapter {
     return { commission: (m.spread / 2) * (stake / medio), spot: medio };
   }
 
+  /**
+   * Los `dealId` que el BRÓKER dice tener abiertos ahora mismo.
+   *
+   * Es la lista contra la que se concilia el estado del motor. El 2026-08-17 el
+   * panel enseñó cuatro posiciones que en IG no existían: sin esta comprobación,
+   * una posición que el motor cree tener vive para siempre aunque nadie la haya
+   * abierto nunca.
+   */
+  async dealIdsAbiertos(): Promise<Set<string>> {
+    return new Set((await this.posiciones()).map((p) => p.dealId));
+  }
+
   private async posiciones(): Promise<PosicionIg[]> {
     const r = await fetch(`${this.cliente.base}/positions`, { headers: this.cabeceras("2") });
     if (!r.ok) throw new Error(`IG positions ${r.status}`);
@@ -268,11 +302,22 @@ export class IgAdapter {
     const m = await this.cliente.mercado(epic);
     if (m.estado !== "TRADEABLE") throw new Error(`${order.symbol} no operable ahora (${m.estado})`);
 
+    // El tamaño se ajusta al escalón del instrumento SIEMPRE HACIA ABAJO. Nunca
+    // hacia arriba: redondear al alza gastaría más riesgo del que el gestor
+    // aprobó, que es justo lo que el gestor existe para impedir.
+    const size = ajustarTamano(order.size, m.minTamano);
+    if (size < m.minTamano) {
+      throw new Error(
+        `el tamaño mínimo de IG (${m.minTamano}) excede el riesgo aprobado ` +
+          `(${order.size.toFixed(4)}) · no se opera`,
+      );
+    }
+
     const cuerpo = {
       epic,
       expiry: "-",
       direction: order.side === "buy" ? "BUY" : "SELL",
-      size: order.size,
+      size,
       orderType: "MARKET",
       // El stop viaja CON la orden: si el proceso muere entre abrir y poner el
       // stop, la posición se queda desprotegida en el bróker. Enviarlo junto es
@@ -280,7 +325,10 @@ export class IgAdapter {
       stopLevel: order.stopPrice,
       guaranteedStop: false,
       forceOpen: true,
-      currencyCode: this.currency || "EUR",
+      // La divisa del INSTRUMENTO, no la de la cuenta. Mandar EUR en un epic
+      // que solo cotiza en USD hacía que IG devolviera `REJECTED` con motivo
+      // `UNKNOWN`: horas de depuración por un campo.
+      currencyCode: m.divisas[0] ?? (this.currency || "EUR"),
     };
 
     const r = await fetch(`${this.cliente.base}/positions/otc`, {
@@ -297,14 +345,28 @@ export class IgAdapter {
     const conf = await fetch(`${this.cliente.base}/confirms/${j.dealReference}`, { headers: this.cabeceras("1") });
     const c = (await conf.json().catch(() => ({}))) as Record<string, any>;
     if (c.dealStatus !== "ACCEPTED") {
-      throw new Error(`IG rechazó la orden: ${c.reason ?? "motivo desconocido"}`);
+      // El motivo va COMPLETO a propósito: un "UNKNOWN" a secas obliga a
+      // depurar a ciegas contra el bróker, y ese fue el coste real de esta
+      // tarde. Aquí caben tamaño, nivel de stop y estado; todos hacen falta
+      // para saber qué corregir.
+      const detalle = [
+        c.reason && `motivo ${c.reason}`,
+        c.dealStatus && `estado ${c.dealStatus}`,
+        c.rejectReason && `rechazo ${c.rejectReason}`,
+        c.status && `posición ${c.status}`,
+        `pedido size ${size} stop ${order.stopPrice}`,
+        c.level != null && `nivel ${c.level}`,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      throw new Error(`IG rechazó la orden: ${detalle}`);
     }
 
     return {
       id: c.dealId,
       symbol: order.symbol,
       side: order.side,
-      size: c.size ?? order.size,
+      size: c.size ?? size,
       entryPrice: c.level ?? order.entryPrice,
       stopPrice: order.stopPrice,
       riskAmount: order.riskAmount,

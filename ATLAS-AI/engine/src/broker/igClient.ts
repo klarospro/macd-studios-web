@@ -63,6 +63,22 @@ export interface Cuota {
   expiraEnSegundos: number;
 }
 
+/**
+ * Una operación ya cerrada según el bróker, con su P&L real cobrado.
+ * `referencia` es el identificador de IG: sirve para no duplicar al re-sincronizar.
+ */
+export interface TransaccionIg {
+  referencia: string;
+  fecha: string;
+  instrumento: string;
+  tipo: string;
+  tamano: number;
+  nivelApertura: number | null;
+  nivelCierre: number | null;
+  pnl: number;
+  divisa: string;
+}
+
 interface PrecioCrudo {
   snapshotTimeUTC?: string;
   snapshotTime?: string;
@@ -175,14 +191,68 @@ export class IgClient {
     return { balance: b.balance ?? 0, disponible: b.available ?? 0, pnl: b.profitLoss ?? 0, margen: b.deposit ?? 0 };
   }
 
-  /** Precio vivo de un instrumento, con su spread real. */
-  async mercado(epic: string): Promise<{ bid: number; ask: number; spread: number; estado: string }> {
+  /**
+   * Historial REAL de operaciones cerradas de la cuenta, según el bróker.
+   *
+   * Es la única fuente de verdad sobre lo que ha ganado o perdido la cuenta: el
+   * registro interno del motor dice lo que el motor CREE que hizo, y las dos
+   * cosas pueden separarse (una orden rechazada, un cierre por stop del bróker,
+   * un reinicio a media pasada). El panel debe enseñar esto, no aquello.
+   */
+  async transacciones(desde: Date, hasta = new Date()): Promise<TransaccionIg[]> {
+    const iso = (d: Date) => d.toISOString().slice(0, 19);
+    const r = await fetch(
+      `${this.base}/history/transactions?from=${iso(desde)}&to=${iso(hasta)}&pageSize=500`,
+      { headers: this.cabeceras("2") },
+    );
+    if (!r.ok) throw new Error(`IG transactions ${r.status}`);
+    const j = (await r.json()) as { transactions: Array<Record<string, any>> };
+    // `profitAndLoss` llega como texto con el símbolo de la divisa ("E12.34").
+    const importe = (v: unknown): number => Number(String(v ?? "").replace(/[^0-9.,-]/g, "").replace(",", ".")) || 0;
+    return (j.transactions ?? []).map((t) => ({
+      referencia: t.reference,
+      fecha: t.dateUtc ?? t.date,
+      instrumento: t.instrumentName,
+      tipo: t.transactionType,
+      tamano: Number(t.size) || 0,
+      nivelApertura: Number(t.openLevel) || null,
+      nivelCierre: Number(t.closeLevel) || null,
+      pnl: importe(t.profitAndLoss),
+      divisa: t.currency ?? "",
+    }));
+  }
+
+  /**
+   * Precio vivo de un instrumento, con su spread real y sus reglas de tamaño.
+   *
+   * `minTamano` no es un detalle burocrático: IG rechaza la orden entera con
+   * `validation.number.too-many-decimal-places.request.size` si el tamaño no
+   * encaja en el escalón del instrumento. Cada epic tiene el suyo, así que se
+   * lee del bróker en vez de asumir uno.
+   */
+  async mercado(epic: string): Promise<{ bid: number; ask: number; spread: number; estado: string; minTamano: number; divisas: string[] }> {
     const r = await fetch(`${this.base}/markets/${encodeURIComponent(epic)}`, { headers: this.cabeceras("3") });
     if (!r.ok) throw new Error(`IG market ${epic} ${r.status}`);
-    const j = (await r.json()) as { snapshot: Record<string, any> };
+    const j = (await r.json()) as {
+      snapshot: Record<string, any>;
+      dealingRules?: Record<string, any>;
+      instrument?: Record<string, any>;
+    };
     const bid = j.snapshot.bid;
     const ask = j.snapshot.offer;
-    return { bid, ask, spread: ask - bid, estado: j.snapshot.marketStatus };
+    const min = Number(j.dealingRules?.minDealSize?.value);
+    // La divisa la dicta el INSTRUMENTO, no la cuenta: IG rechaza la orden si
+    // se le manda una que ese epic no ofrece. Estos cotizan en USD aunque la
+    // cuenta esté en EUR.
+    const divisas = ((j.instrument?.currencies ?? []) as Array<{ code: string }>).map((c) => c.code);
+    return {
+      bid,
+      ask,
+      spread: ask - bid,
+      estado: j.snapshot.marketStatus,
+      minTamano: Number.isFinite(min) && min > 0 ? min : 1,
+      divisas,
+    };
   }
 
   /**

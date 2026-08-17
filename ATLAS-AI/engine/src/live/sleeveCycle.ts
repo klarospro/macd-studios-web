@@ -522,6 +522,9 @@ async function publicarParaPanel(
     }
   }
 
+  // El panel refleja la cuenta real. Un ensayo no la ha tocado, así que
+  // tampoco puede tocar lo que ve el operador.
+  if (!EXECUTE) return;
   await publishSnapshot(VENUE_ID, equity, posiciones, pnl).catch(() => null);
 }
 
@@ -638,6 +641,9 @@ async function ejecutarCiclo(adapter: AdaptadorCiclo, config: AtlasConfig): Prom
       `semana ${pnl.semana.toFixed(2)} (${((pnl.semana / equity) * 100).toFixed(2)}%)`,
   );
 
+  // El bróker manda: lo que él no tenga abierto, el motor no lo tiene.
+  if (IG && adapter instanceof IgAdapter) await conciliarConBroker(adapter, estado);
+
   // ANTES de intentar nada: ¿el bróker ofrece mercado? Un catálogo vacío no
   // es "mercados cerrados" —un domingo el catálogo llega entero con
   // exchange_is_open=0— sino el venue caído. Distinguirlo evita repetir el
@@ -653,7 +659,7 @@ async function ejecutarCiclo(adapter: AdaptadorCiclo, config: AtlasConfig): Prom
     if (IG) await observarFlujo(adapter, at);
 
     await publicarParaPanel(adapter, estado, equity);
-    guardarEstado(ESTADO_PATH, estado);
+    persistir(estado);
     return;
   }
 
@@ -676,6 +682,55 @@ async function ejecutarCiclo(adapter: AdaptadorCiclo, config: AtlasConfig): Prom
   console.log(`  Posiciones abiertas: ${abiertas}`);
 
   await publicarParaPanel(adapter, estado, equity);
+  persistir(estado);
+}
+
+/**
+ * Concilia lo que el motor cree tener con lo que el bróker tiene de verdad.
+ *
+ * La cuenta del bróker es la única fuente de verdad sobre qué está abierto: el
+ * estado del motor y las tablas del panel son copias suyas. Si una posición no
+ * está en IG, se cae del estado —da igual por qué: una orden que se creyó
+ * aceptada, un stop que saltó en el bróker, un ensayo que ensució el fichero—.
+ * Sin esto, el panel puede enseñar durante días posiciones que no existen, que
+ * es exactamente lo que pasó el 2026-08-17.
+ */
+async function conciliarConBroker(adapter: IgAdapter, estado: EstadoCartera): Promise<void> {
+  let reales: Set<string>;
+  try {
+    reales = await adapter.dealIdsAbiertos();
+  } catch (e) {
+    // Sin respuesta del bróker no se concilia: borrar posiciones buenas por un
+    // corte de red sería peor que la enfermedad.
+    console.log(`  aviso: no se pudo conciliar con IG (${e instanceof Error ? e.message : e})`);
+    return;
+  }
+
+  for (const id of SLEEVE_IDS) {
+    const sleeve = estado.sleeves[id];
+    const fantasmas = sleeve.openPositions.filter((p) => !reales.has(p.id));
+    if (fantasmas.length === 0) continue;
+    for (const f of fantasmas) {
+      console.log(`  ${id.padEnd(11)} ${f.symbol}: IG no la tiene abierta · se descarta del estado`);
+    }
+    sleeve.openPositions = sleeve.openPositions.filter((p) => reales.has(p.id));
+  }
+}
+
+/**
+ * Guarda el estado SOLO si la pasada era real.
+ *
+ * Un dry-run se ejecutó el 2026-08-17 para comprobar el arreglo de precios y
+ * dejó cuatro posiciones inventadas en el mismo fichero que usa la corrida de
+ * verdad; el siguiente ciclo real las dio por buenas, las publicó en el panel y
+ * se saltó la revisión del Core porque el ensayo ya la había marcado como hecha.
+ * Un ensayo que cambia el mundo no es un ensayo.
+ */
+function persistir(estado: EstadoCartera): void {
+  if (!EXECUTE) {
+    console.log("  (dry-run: no se guarda estado ni se toca el panel)");
+    return;
+  }
   guardarEstado(ESTADO_PATH, estado);
 }
 
