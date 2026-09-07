@@ -11,6 +11,8 @@ import { capitalDeSleeve, detectarSolapamientos, SleevePosition } from "../portf
 import { ContextoCartera, evaluarSleeve, LimitesSleeve, SleeveDecision, SleeveSignal } from "../risk/sleeveRiskGate";
 import { paramsCoreDesdeConfig, senalCore, debeCerrarCore } from "../strategy/sleeveCore";
 import { paramsIntradiaDesdeConfig, senalIntradia } from "../strategy/sleeveIntradia";
+import { distanciaR, paramsBreakevenDesdeConfig, stopBreakeven } from "../strategy/breakeven";
+import { emparejarCierre, motivoDeCierre } from "./cierresBroker";
 import {
   calendarioDesdeConfig,
   evaluarEvento,
@@ -216,13 +218,15 @@ async function abrir(
       `  ${orden.sleeve.padEnd(11)} ${orden.symbol}: rechazada · exposición neta en ${veredicto.divisa} ` +
         `llegaría a $${Math.abs(veredicto.expuestoTras ?? 0).toFixed(2)} (tope $${veredicto.limite?.toFixed(2)})`,
     );
-    await audit.record({ kind: "order_rejected", at, signal: orden, reason: "max_aggregate_risk", venueId: VENUE_ID });
+    await audit.record({ kind: "order_rejected", at, signal: orden, reason: "exposicion_divisa", venueId: VENUE_ID });
     return;
   }
 
   const posicion: SleevePosition = EXECUTE
-    ? { ...(await adapter.placeOrder(orden)), sleeve: orden.sleeve }
+    ? { ...(await adapter.placeOrder(orden)), sleeve: orden.sleeve, stopInicial: orden.stopPrice, abiertaEn: at }
     : {
+        stopInicial: orden.stopPrice,
+        abiertaEn: at,
         id: `dry-${orden.sleeve}-${orden.symbol}-${Date.now()}`,
         symbol: orden.symbol,
         side: orden.side,
@@ -304,6 +308,68 @@ async function cerrar(
   console.log(`  ${posicion.sleeve.padEnd(11)} CIERRE ${posicion.symbol} · ${motivo} · P&L ${pnl.toFixed(2)}`);
 }
 
+/**
+ * Breakeven de los sleeves de scalping (Intradía y EventScalp).
+ *
+ * Cuando una posición gana lo que arriesgaba, su stop se mueve al precio de
+ * entrada: a partir de ahí esa operación ya no puede terminar en pérdida.
+ * La decisión la toma `stopBreakeven` (función pura, con tests); aquí solo
+ * están el bróker y el estado.
+ *
+ * SOLO IG. Deriv acota la pérdida al stake dentro del propio Multiplier y su
+ * adaptador no expone forma de mover el stop; fingir que sí llevaría al motor a
+ * creer que una posición está protegida cuando no lo está.
+ *
+ * El riesgo liberado NO se recicla como presupuesto para entradas nuevas. Es
+ * defendible hacerlo —una posición en breakeven arriesga ~0— pero significaría
+ * que un buen día abre más operaciones justo cuando más expuesto está el
+ * conjunto, y eso no se ha medido. Queda para cuando haya muestra.
+ */
+async function pasadaBreakeven(
+  adapter: AdaptadorCiclo,
+  config: AtlasConfig,
+  estado: EstadoCartera,
+  at: string,
+): Promise<void> {
+  if (!(adapter instanceof IgAdapter)) return;
+
+  for (const id of ["intradia", "eventscalp"] as const) {
+    const params = paramsBreakevenDesdeConfig(config[id] as Record<string, any>);
+    if (!params.activo) continue;
+
+    for (const posicion of estado.sleeves[id].openPositions) {
+      try {
+        const { profit } = await adapter.contractPnl(posicion.id);
+        // R se mide contra el stop de APERTURA. Las posiciones abiertas antes
+        // de que existiera `stopInicial` caen al vigente, que en ellas todavía
+        // es el original porque nunca se les movió.
+        const r = distanciaR(posicion.entryPrice, posicion.stopInicial ?? posicion.stopPrice);
+        const nuevoStop = stopBreakeven(posicion, profit, r, params);
+        if (nuevoStop === undefined) continue;
+
+        if (!EXECUTE) {
+          console.log(`  ${id.padEnd(11)} ${posicion.symbol}: breakeven a ${nuevoStop} (dry-run)`);
+          continue;
+        }
+
+        await adapter.moverStop(posicion.id, nuevoStop);
+        // El estado solo se actualiza si IG confirmó el cambio: `moverStop`
+        // lanza si no. Guardar el stop nuevo tras un fallo dejaría al motor
+        // creyendo protegida una posición que sigue con el stop viejo.
+        posicion.stopPrice = nuevoStop;
+        console.log(
+          `  ${id.padEnd(11)} ${posicion.symbol}: stop a punto de equilibrio ${nuevoStop} ` +
+            `(P&L ${profit.toFixed(2)} >= ${params.activarEnR}R de ${posicion.riskAmount.toFixed(2)})`,
+        );
+      } catch (error) {
+        // Un stop que no se pudo mover deja la posición como estaba: es el
+        // estado seguro. Se avisa y se sigue con las demás.
+        console.log(`  ${id.padEnd(11)} ${posicion.symbol}: no se pudo mover el stop (${error instanceof Error ? error.message : String(error)})`);
+      }
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Sleeve A — Core
 // ---------------------------------------------------------------------------
@@ -347,7 +413,8 @@ async function pasadaCore(
 
       const decision = evaluarSleeve(config, contexto(config, estado, equity, fecha), signal, limitesDe(config, "core"));
       if (!decision.approved) {
-        await audit.record({ kind: "order_rejected", at, signal, reason: "max_aggregate_risk", venueId: VENUE_ID });
+        console.log(`  core        ${symbol}: rechazado por riesgo (${decision.reason})`);
+        await audit.record({ kind: "order_rejected", at, signal, reason: decision.reason, venueId: VENUE_ID });
         continue;
       }
       await abrir(adapter, estado, decision, at, symbol, topeDivisa(config, equity));
@@ -401,7 +468,15 @@ async function pasadaIntradia(
         signal,
         limitesDe(config, "intradia"),
       );
-      if (!decision.approved) continue;
+      if (!decision.approved) {
+        // Antes se descartaba en silencio. El sleeve intradía lleva desde el
+        // 2026-08-13 sin operar y ese silencio es justo lo que impedía saber
+        // por qué: sin este registro, "no operó" y "el gate lo rechazó" se
+        // parecen demasiado.
+        console.log(`  intradia    ${symbol}: rechazado por riesgo (${decision.reason})`);
+        await audit.record({ kind: "order_rejected", at, signal, reason: decision.reason, venueId: VENUE_ID });
+        continue;
+      }
       await abrir(adapter, estado, decision, at, symbol, topeDivisa(config, equity));
     } catch (error) {
       console.log(`  intradia    ${symbol}: ${error instanceof Error ? error.message : String(error)} (se salta)`);
@@ -466,6 +541,7 @@ async function pasadaEventScalp(
       );
       if (!decision.approved) {
         console.log(`  eventscalp  ${evento.id}: rechazado por riesgo (${decision.reason})`);
+        await audit.record({ kind: "order_rejected", at, signal: resultado.signal, reason: decision.reason, venueId: VENUE_ID });
         continue;
       }
       await abrir(adapter, estado, decision, at, evento.tipo, topeDivisa(config, equity), resultado.puntuacion);
@@ -504,7 +580,8 @@ async function publicarParaPanel(
         stopPrice: p.stopPrice,
         size: p.size,
         riskAmount: p.riskAmount,
-        openedAt: new Date().toISOString(),
+        // La apertura REAL, no la hora de esta pasada. Ver `abiertaEn`.
+        openedAt: p.abiertaEn ?? new Date().toISOString(),
       };
       if (EXECUTE) {
         try {
@@ -636,7 +713,7 @@ async function ejecutarCiclo(adapter: AdaptadorCiclo, config: AtlasConfig): Prom
   );
 
   // El bróker manda: lo que él no tenga abierto, el motor no lo tiene.
-  if (IG && adapter instanceof IgAdapter) await conciliarConBroker(adapter, estado);
+  if (IG && adapter instanceof IgAdapter) await conciliarConBroker(adapter, estado, at);
 
   // ANTES de intentar nada: ¿el bróker ofrece mercado? Un catálogo vacío no
   // es "mercados cerrados" —un domingo el catálogo llega entero con
@@ -656,6 +733,13 @@ async function ejecutarCiclo(adapter: AdaptadorCiclo, config: AtlasConfig): Prom
     persistir(estado);
     return;
   }
+
+  // Antes de buscar entradas nuevas, se protege lo que ya está abierto: si una
+  // posición de scalping ya gana lo que arriesgaba, su stop sube a la entrada.
+  // El orden importa — una entrada nueva puede agotar el presupuesto del día, y
+  // dejar sin proteger una posición viva por gastar el turno en otra sería
+  // exactamente al revés de la prioridad del proyecto (preservar capital).
+  await pasadaBreakeven(adapter, config, estado, at);
 
   // El Sleeve C va primero: sus eventos definen de qué debe apartarse el B.
   const minutosAEvento = await pasadaEventScalp(adapter, config, estado, equity, fecha, at, ahoraEpoch);
@@ -689,7 +773,7 @@ async function ejecutarCiclo(adapter: AdaptadorCiclo, config: AtlasConfig): Prom
  * Sin esto, el panel puede enseñar durante días posiciones que no existen, que
  * es exactamente lo que pasó el 2026-08-17.
  */
-async function conciliarConBroker(adapter: IgAdapter, estado: EstadoCartera): Promise<void> {
+async function conciliarConBroker(adapter: IgAdapter, estado: EstadoCartera, at: string): Promise<void> {
   let reales: Set<string>;
   try {
     reales = await adapter.dealIdsAbiertos();
@@ -700,14 +784,58 @@ async function conciliarConBroker(adapter: IgAdapter, estado: EstadoCartera): Pr
     return;
   }
 
-  for (const id of SLEEVE_IDS) {
-    const sleeve = estado.sleeves[id];
-    const fantasmas = sleeve.openPositions.filter((p) => !reales.has(p.id));
-    if (fantasmas.length === 0) continue;
-    for (const f of fantasmas) {
-      console.log(`  ${id.padEnd(11)} ${f.symbol}: IG no la tiene abierta · se descarta del estado`);
-    }
-    sleeve.openPositions = sleeve.openPositions.filter((p) => reales.has(p.id));
+  const huerfanas = SLEEVE_IDS.flatMap((id) =>
+    estado.sleeves[id].openPositions.filter((p) => !reales.has(p.id)),
+  );
+  if (huerfanas.length === 0) return;
+
+  // Un solo extracto para todas: IG limita la cuota de peticiones y pedir uno
+  // por posición la gastaría sin necesidad. 14 días cubren de sobra el hueco
+  // entre pasadas incluso si el runner estuvo caído un fin de semana largo.
+  const desde = new Date(Date.now() - 14 * 24 * 3600 * 1000);
+  const extracto = await adapter.transaccionesDesde(desde).catch((e) => {
+    console.log(`  aviso: no se pudo leer el extracto de IG (${e instanceof Error ? e.message : e})`);
+    return [];
+  });
+
+  for (const posicion of huerfanas) {
+    const tx = emparejarCierre(extracto, posicion);
+    const pnl = tx?.pnl ?? 0;
+    const motivo = tx
+      ? motivoDeCierre(posicion, tx.nivelCierre, pnl)
+      : // Sin transacción que la respalde NO se inventa un P&L de 0: se declara
+        // el hueco. Un 0 se sumaría a las métricas como si fuera una operación
+        // plana real y contaminaría la expectancy de la Fase 1.
+        "cerrada_en_broker_sin_extracto";
+
+    quitarPosicion(estado, posicion.sleeve, posicion.id);
+    // Lo que hasta ahora NO pasaba: el P&L de un stop llega a los contadores
+    // del día y de la semana, que son los que miran los breakers. Sin esto los
+    // breakers vigilaban un P&L ciego a las pérdidas que materializa el bróker.
+    if (tx) registrarCierre(estado, posicion.sleeve, pnl);
+
+    await tradeLog
+      .actualizar(posicion.id, {
+        cerradoEn: tx?.fecha ?? at,
+        precioSalida: tx?.nivelCierre ?? undefined,
+        pnl: tx ? pnl : undefined,
+        motivoSalida: motivo,
+      })
+      .catch(() => null);
+    await audit.record({
+      kind: "position_closed",
+      at,
+      venueId: VENUE_ID,
+      positionId: posicion.id,
+      symbol: posicion.symbol,
+      motivo,
+    });
+    await notificarSalidaSleeve(posicion.sleeve, posicion.symbol, posicion.side, motivo, pnl, !EXECUTE);
+
+    console.log(
+      `  ${posicion.sleeve.padEnd(11)} CIERRE EN BRÓKER ${posicion.symbol} · ${motivo} · ` +
+        (tx ? `P&L ${pnl.toFixed(2)}` : "P&L desconocido (sin transacción que lo respalde)"),
+    );
   }
 }
 

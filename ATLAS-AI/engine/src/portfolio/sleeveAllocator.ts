@@ -21,6 +21,21 @@ import { Position, Side } from "../domain/types";
 /** Posición etiquetada con el sleeve que la abrió. */
 export interface SleevePosition extends Position {
   sleeve: SleeveId;
+  /**
+   * Stop con el que se ABRIÓ, que no cambia aunque el breakeven mueva el
+   * vigente. Es lo que define R para el resto de la vida de la posición:
+   * medir R contra el stop ya movido daría R≈0 y volvería inútil cualquier
+   * regla que se exprese en múltiplos de R. Opcional porque las posiciones
+   * guardadas antes de existir este campo no lo traen.
+   */
+  stopInicial?: number;
+  /**
+   * Momento REAL de apertura, en ISO. El panel lo publicaba con la hora de cada
+   * pasada, así que tres posiciones abiertas el 21, el 24 y el 26 de agosto
+   * aparecían las tres como abiertas "hoy": el operador no podía ver cuánto
+   * llevaba viva ninguna. Opcional por las posiciones anteriores a este campo.
+   */
+  abiertaEn?: string;
 }
 
 /** Estado operativo de un sleeve dentro del día/semana en curso. */

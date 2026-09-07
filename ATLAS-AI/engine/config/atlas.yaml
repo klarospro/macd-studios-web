@@ -52,9 +52,21 @@ cartera:
   # Siguen existiendo a propósito: son la diferencia entre una demo que se puede
   # analizar y una cuenta a cero. Con 6% diario caben ~5 pérdidas seguidas.
   # ESTOS NÚMEROS SON DE DEMO. En real hay que volver a 2%/5%.
+  #
+  # 2026-09-07 — subidos otra vez, y esta vez es ARITMÉTICA OBLIGADA, no una
+  # preferencia: el objetivo pedido es 3-5 operaciones diarias arriesgando 200 €
+  # cada una. Cinco entradas son 1 000 € = 12,3% del equity (8 146 €). Con el
+  # breaker en 6% el bot se pararía a la tercera entrada del día y nunca llegaría
+  # a las cinco — el techo tiene que quedar POR ENCIMA del presupuesto diario o
+  # el presupuesto no significa nada.
+  #
+  # Lo que esto significa sin adornos: un día entero en contra pasa a costar
+  # -12,3% de la cuenta, y el breaker semanal deja pasar casi dos de esos días.
+  # El drawdown ya medido ANTES de este cambio fue del 16,1%. Es un número de
+  # DEMO y solo se sostiene porque el dinero es virtual.
   breakers:
-    perdida_diaria_pct: 0.06 # -6% en el día -> pausa TODA la cartera hasta mañana
-    perdida_semanal_pct: 0.12 # -12% en la semana -> pausa semanal
+    perdida_diaria_pct: 0.13 # -13% en el día -> pausa TODA la cartera hasta mañana
+    perdida_semanal_pct: 0.22 # -22% en la semana -> pausa semanal
 
 # -----------------------------------------------------------------------------
 # TAREA 5 — Límites regulatorios ESMA (España)
@@ -130,8 +142,11 @@ riesgo:
     # significativa. Con 0.25% muchas señales generaban posiciones tan pequeñas
     # que el resultado quedaba dentro del ruido. NO subir esto en real sin
     # rehacer el walk-forward: dobla el drawdown esperado.
+    # 2026-09-07: max sube a 2,5% para que el rango sea COHERENTE con el riesgo
+    # fijo de 200 € (2,46% del equity). Mientras riesgo_fijo_por_operacion > 0
+    # este rango no se usa; existe como red por si se vuelve al modo porcentaje.
     min: 0.005 # 0.50%
-    max: 0.01 # 1.00%
+    max: 0.025 # 2.50%
 
   # ---------------------------------------------------------------------------
   # Presupuesto de riesgo DIARIO por tipo de estrategia (fracción del equity).
@@ -146,9 +161,14 @@ riesgo:
   # objetivo es acumular muestra rápido y medir acertividad. Antes de tocar
   # dinero real hay que rehacer el walk-forward con estos números.
   # ---------------------------------------------------------------------------
+  #
+  # 2026-09-07 — subidos para permitir 3-5 operaciones diarias de 200 €.
+  # La cuenta es el motivo, no una corazonada: con 2,5% (203 €) solo cabía UNA
+  # entrada de 200 € al día en scalping, y con 2,0% (163 €) el Core no cabía
+  # NI UNA. Repartido ahora como 3 entradas de scalping + 2 de Core = 5 al día.
   presupuesto_diario_pct:
-    scalping: 0.025 # 2,5% — sleeves intradía y eventscalp
-    semanal: 0.02 # 2,0% — sleeve core (largos / semanales)
+    scalping: 0.075 # 7,5% ~ 611 € ~ 3 entradas de 200 € — intradía y eventscalp
+    semanal: 0.05 # 5,0% ~ 407 € ~ 2 entradas de 200 € — sleeve core
 
   # Tope de riesgo VIVO simultáneo por bloque. Un bloque es un grupo de cosas
   # que se mueven juntas: la divisa (EUR, USD...), el oro y los índices. Impide
@@ -156,7 +176,10 @@ riesgo:
   # Subido de 2% a 8% el 2026-08-17: con 100 € por operación (1,17% del equity),
   # el 2% dejaba entrar UNA sola posición por bloque y bloqueaba el resto — no
   # protegía, impedía probar. Con 8% caben ~6 posiciones del mismo bloque.
-  tope_por_bloque_pct: 0.08 # 8,0% del equity
+  # Subido de 8% a 15% el 2026-09-07: con 200 € por operación (2,46% del
+  # equity), el 8% dejaba entrar 3 posiciones por bloque contando las del Core
+  # que ya están abiertas. Con 15% caben ~6.
+  tope_por_bloque_pct: 0.15 # 15,0% del equity ~ 1 222 € ~ 6 entradas de 200 €
 
   # Riesgo FIJO por operación, en moneda de cuenta (EUR). Decisión de Moisés
   # 2026-08-17: "arriesga 100 buscando 300-500".
@@ -171,7 +194,11 @@ riesgo:
   # Subido de 100 a 125 el 2026-08-17 por decisión de Moisés. El motivo es
   # concreto y medido: con 100 € el US30 se quedaba a 21 € de poder entrar
   # —su stop diario cuesta 103 £ (~121 €)— y quedaba fuera de la prueba.
-  riesgo_fijo_por_operacion: 125
+  # Subido de 125 a 200 el 2026-09-07 por decisión de Moisés: "riesgo de 200,
+  # beneficio 500". Sobre 8 146 € son el 2,46% por operación — el doble de lo
+  # que validó el walk-forward (0,5-1,0%) y, por tanto, esperando el doble de
+  # drawdown. No multiplica el retorno: multiplica la varianza.
+  riesgo_fijo_por_operacion: 200
 
   # Techo absoluto por operación, en moneda de cuenta.
   #
@@ -187,7 +214,11 @@ riesgo:
   # 260 € sobre 8 536 € es el 3,0% en UNA operación. Es mucho, y es a propósito
   # porque esto es demo y el objetivo es acumular muestra. En real este número
   # baja a la vez que `riesgo_fijo_por_operacion`.
-  riesgo_maximo_por_operacion: 260
+  # Subido de 260 a 300 el 2026-09-07 al pasar el riesgo fijo a 200 €. Solo
+  # afecta a instrumentos cuyo lote mínimo arriesga más de 200 € (el NASDAQ:
+  # ~257 €). No se sube más porque nada del universo actual lo necesita, y 300 €
+  # ya son el 3,7% de la cuenta en UNA sola operación.
+  riesgo_maximo_por_operacion: 300
 
   # Objetivo en múltiplos de R (R = lo que arriesgas). Con 8, arriesgar 100 €
   # busca 800 €. Decisión de Moisés 2026-08-17: "100 buscando 1000, 800 o 400".
@@ -201,7 +232,17 @@ riesgo:
   # donde sale el dinero—, pero la mayoría de operaciones NO llegarán a 8R. Se
   # gana poco y muchas veces, se pierde 100 € muchas más veces, y el resultado
   # depende de que los pocos aciertos grandes lleguen. Es lo que mide la demo.
-  objetivo_r: 8
+  #
+  # 2026-09-07: bajado de 8R a 2,5R por decisión de Moisés — "riesgo 200,
+  # beneficio 500" es exactamente 2,5R (200 x 2,5 = 500).
+  #
+  # AVISO, y va en dirección contraria a lo que parece: esto NO hace el sistema
+  # más rentable, le cambia la forma. El Core es seguimiento de tendencia y ahí
+  # el dinero sale de dejar correr al ganador; cortando en 2,5R se cobran más
+  # objetivos (se toca 2,5R mucho más a menudo que 8R) pero se renuncia a la
+  # operación grande que paga las muchas pérdidas pequeñas. Es medible: con el
+  # registro de cierres arreglado, cuatro semanas de demo lo dicen.
+  objetivo_r: 2.5
 
   # Rechazar cualquier señal si el spread supera este múltiplo del spread
   # normal del activo. Aplica a los tres sleeves.
@@ -263,13 +304,19 @@ intradia:
   activo: true
 
   limites:
-    posiciones_max: 3
+    # 2026-09-07: subidos para sostener el objetivo de 3-5 operaciones diarias.
+    # El intradía es el único sleeve que puede darlas: el Core revisa una vez al
+    # día por diseño y el EventScalp depende de que haya dato macro.
+    posiciones_max: 4
     posiciones_max_por_clase: 2
-    trades_dia_max: 3
+    trades_dia_max: 4
     trades_dia_min_objetivo: 1
-    trades_semana_max: 10
-    # Si los DOS primeros trades del día son perdedores, el sleeve para el día.
-    parar_tras_perdidas_iniciales: 2
+    trades_semana_max: 20
+    # Si los TRES primeros trades del día son perdedores, el sleeve para el día.
+    # Era 2, pero con 200 € por operación dos pérdidas seguidas cerraban la
+    # jornada en la segunda entrada y nunca se llegaba a las 3-5 pedidas.
+    # Con 3 el corte sigue existiendo: -600 € = -7,4% del equity.
+    parar_tras_perdidas_iniciales: 3
     # Un solo intento por setup; sin reentrada al mismo nivel el mismo día.
     reentrada_mismo_setup: false
 
@@ -317,6 +364,24 @@ intradia:
     # win rate de diseño (65-75%). El win rate es CONSECUENCIA, no objetivo.
     tp_x_stop: 1.0
 
+    # Stop a punto de equilibrio (2026-09-07, petición de Moisés: "que el
+    # scalping trabaje con breakeven"). Cuando la operación gana lo que
+    # arriesgaba (1R = 200 €), el stop sube al precio de entrada y esa
+    # operación ya no puede terminar en pérdida.
+    #
+    # QUÉ CUESTA, que no es gratis: también corta ganadoras que solo estaban
+    # respirando: un retroceso normal hasta la entrada ahora cierra la posición
+    # en plano en vez de dejarla seguir. En scalping —objetivo cercano, TP ~ 1x
+    # el stop— compensa; en el Core NO se activa por eso mismo.
+    #
+    # offset_r deja el stop un poco a favor en lugar de clavado en la entrada:
+    # con 0 se paga igual la comisión de cierre y la operación "sin pérdida"
+    # acaba costando dinero. 0,1R = 20 € de colchón sobre un riesgo de 200 €.
+    breakeven:
+      activo: true
+      activar_en_r: 1.0 # a +200 € de beneficio vivo, stop a la entrada
+      offset_r: 0.1 # +0,1R por encima de la entrada, para cubrir el cierre
+
   # No operar en los ±N minutos alrededor de un evento de alto impacto:
   # ese territorio es del Sleeve C.
   exclusion_eventos_min: 15
@@ -359,6 +424,14 @@ eventscalp:
   salidas:
     stop_atr: 0.5
     tp_r: 1.2
+
+    # Breakeven del EventScalp. El umbral es MÁS BAJO que en el intradía a
+    # propósito: aquí el objetivo está en 1,2R, así que esperar a 1R dejaría la
+    # regla sin margen para actuar. A 0,6R ya hay recorrido que proteger.
+    breakeven:
+      activo: true
+      activar_en_r: 0.6
+      offset_r: 0.1
 
   # Puntuación de la sorpresa (actual vs consenso). La IA PUNTÚA; el motor
   # DECIDE con estas reglas. La IA nunca opera sola.

@@ -489,6 +489,54 @@ export class IgAdapter {
     return { profit: enDivisa / cambio, currentSpot: (m.bid + m.ask) / 2 };
   }
 
+  /** Extracto de operaciones cerradas de IG desde una fecha (reconciliación). */
+  async transaccionesDesde(desde: Date) {
+    return this.cliente.transacciones(desde);
+  }
+
+  /**
+   * Mueve el stop de una posición abierta (lo usa el breakeven del scalping).
+   *
+   * IG modifica la posición con PUT sobre `/positions/otc/{dealId}` y confirma
+   * en dos pasos, igual que la apertura: la llamada devuelve una referencia y
+   * hay que preguntar si acabó aceptada. Darla por buena sin confirmar dejaría
+   * el motor creyendo que la posición está protegida cuando no lo está — que es
+   * peor que no mover el stop, porque el riesgo real deja de coincidir con el
+   * que dice el estado.
+   *
+   * `trailingStop: false` es obligatorio en el cuerpo: IG rechaza la
+   * modificación si no se declara, aunque no se esté usando trailing.
+   *
+   * SIN CONFIRMAR contra la cuenta demo: escrito según la API REST de IG pero
+   * todavía no ejecutado contra el bróker. El primer movimiento real de stop
+   * hay que verlo en el log antes de fiarse.
+   */
+  async moverStop(dealId: string, nuevoStop: number): Promise<void> {
+    const r = await fetch(`${this.cliente.base}/positions/otc/${dealId}`, {
+      method: "PUT",
+      headers: this.cabeceras("2"),
+      body: JSON.stringify({ stopLevel: nuevoStop, trailingStop: false }),
+    });
+    const j = (await r.json().catch(() => ({}))) as Record<string, any>;
+    if (!r.ok) throw new Error(`IG stop ${r.status}: ${j.errorCode ?? ""}`);
+
+    const conf = await fetch(`${this.cliente.base}/confirms/${j.dealReference}`, { headers: this.cabeceras("1") });
+    const crudo = await conf.text();
+    if (!conf.ok) throw new Error(`IG no confirmó el cambio de stop (${conf.status}): ${crudo.slice(0, 200)}`);
+    let c: Record<string, any> = {};
+    try {
+      c = JSON.parse(crudo) as Record<string, any>;
+    } catch {
+      throw new Error(`IG devolvió una confirmación ilegible al mover el stop: ${crudo.slice(0, 200)}`);
+    }
+    if (c.dealStatus !== "ACCEPTED") {
+      const detalle = [c.reason && `motivo ${c.reason}`, c.dealStatus && `estado ${c.dealStatus}`, `stop pedido ${nuevoStop}`]
+        .filter(Boolean)
+        .join(" · ");
+      throw new Error(`IG rechazó el cambio de stop: ${detalle}`);
+    }
+  }
+
   async closePosition(dealId: string): Promise<void> {
     const abiertas = await this.posiciones();
     const p = abiertas.find((x) => x.dealId === dealId);

@@ -271,8 +271,17 @@ describe("sleeveIntradia · lectura del YAML", () => {
     expect(params.fuerza.multiploMinimo).toBe(1.5);
     expect(params.sesiones.londres.abre).toBe(420); // 07:00 UTC
     expect(params.exclusionEventosMin).toBe(15);
-    expect(limites.trades_dia_max).toBe(3);
-    expect(limites.trades_semana_max).toBe(10);
-    expect(limites.parar_tras_perdidas_iniciales).toBe(2);
+    // Subidos el 2026-09-07 con el riesgo a 200 € por operación: el objetivo
+    // pedido es 3-5 entradas diarias y el intradía es el único sleeve capaz
+    // de darlas. Si alguien vuelve a bajar el YAML, este test lo canta.
+    expect(limites.trades_dia_max).toBe(4);
+    expect(limites.trades_semana_max).toBe(20);
+    expect(limites.parar_tras_perdidas_iniciales).toBe(3);
+    // El breakeven del scalping está encendido y en el umbral acordado.
+    expect((cargarConfig().intradia as any).salidas.breakeven).toEqual({
+      activo: true,
+      activar_en_r: 1.0,
+      offset_r: 0.1,
+    });
   });
 });

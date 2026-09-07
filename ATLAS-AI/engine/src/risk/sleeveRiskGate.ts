@@ -48,7 +48,9 @@ export type SleeveRechazo =
   | "presupuesto_sleeve_agotado"
   | "esma_simbolo_sin_clasificar"
   | "esma_apalancamiento_excedido"
-  | "size_no_positivo";
+  | "size_no_positivo"
+  /** Lo rechaza el ciclo, no el gate: exposición neta acumulada en una divisa. */
+  | "exposicion_divisa";
 
 /** Señal enriquecida con lo que el gate multi-sleeve necesita saber. */
 export interface SleeveSignal extends Signal {
