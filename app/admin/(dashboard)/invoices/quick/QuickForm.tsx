@@ -5,9 +5,20 @@ import { Field, Input, Select, Button } from '@/components/admin/ui'
 import type { Client } from '@/lib/admin/types'
 import { createQuickPayment, type ActionState } from './actions'
 
+const CONCEPT_TEMPLATES = [
+  'Página web',
+  'App',
+  'Automatización',
+  'Sistema automático',
+  'Servicio',
+  'Préstamo',
+  'Inversión',
+]
+
 export default function QuickForm({ clients }: { clients: Pick<Client, 'id' | 'name' | 'company'>[] }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(createQuickPayment, undefined)
   const [isNewClient, setIsNewClient] = useState(false)
+  const [concept, setConcept] = useState('')
 
   return (
     <form action={formAction} className="space-y-5">
@@ -61,7 +72,28 @@ export default function QuickForm({ clients }: { clients: Pick<Client, 'id' | 'n
       </div>
 
       <Field label="Concepto *" hint="Se usará como descripción de la línea de servicio en la factura">
-        <Input name="concept" placeholder="Ej. Mantenimiento web — Septiembre" required />
+        <div className="space-y-2">
+          <Select
+            value=""
+            onChange={(e) => e.target.value && setConcept(e.target.value)}
+          >
+            <option value="" disabled>
+              Plantilla…
+            </option>
+            {CONCEPT_TEMPLATES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </Select>
+          <Input
+            name="concept"
+            placeholder="Ej. Mantenimiento web — Septiembre"
+            value={concept}
+            onChange={(e) => setConcept(e.target.value)}
+            required
+          />
+        </div>
       </Field>
 
       {state?.error && (

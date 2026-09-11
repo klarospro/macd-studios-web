@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, StyleSheet, renderToBuffer } from '@react-pdf/renderer'
 import type { Client, Invoice, InvoiceItem } from '@/lib/admin/types'
+import { getTaxComplianceNote } from '@/lib/admin/invoice-tax-note'
 
 // Fuentes estándar (Helvetica) en vez de registrar Playfair/Inter por URL remota — evita que
 // la generación de PDF dependa de una llamada de red a Google Fonts en cada request.
@@ -38,6 +39,7 @@ const styles = StyleSheet.create({
   grandTotalValue: { fontSize: 11, fontFamily: 'Helvetica-Bold', color: GOLD },
   statusBadge: { alignSelf: 'flex-start', paddingVertical: 3, paddingHorizontal: 8, borderRadius: 3, fontSize: 8, fontFamily: 'Helvetica-Bold' },
   notes: { marginTop: 24, fontSize: 8, color: MUTED, lineHeight: 1.5 },
+  taxNote: { marginTop: 12, fontSize: 8, color: MUTED, lineHeight: 1.5, fontStyle: 'italic' },
   footer: { position: 'absolute', bottom: 30, left: 40, right: 40, fontSize: 7, color: MUTED, textAlign: 'center', borderTop: '1px solid #eee', paddingTop: 10 },
 })
 
@@ -63,6 +65,8 @@ export function InvoiceDocument({
   client: Client | null
   items: InvoiceItem[]
 }) {
+  const taxNote = getTaxComplianceNote(client)
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -145,6 +149,12 @@ export function InvoiceDocument({
           <View style={styles.notes}>
             <Text style={styles.label}>Notas / términos de pago</Text>
             <Text>{invoice.notes}</Text>
+          </View>
+        )}
+
+        {taxNote && (
+          <View style={styles.taxNote}>
+            <Text>{taxNote}</Text>
           </View>
         )}
 

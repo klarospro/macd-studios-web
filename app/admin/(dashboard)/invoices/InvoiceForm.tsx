@@ -10,6 +10,16 @@ const EMPTY_LINE: Line = { description: '', quantity: 1, unit_price: 0, tax_rate
 const PAYMENT_METHODS = ['Wire Transfer', 'Stripe', 'PayPal', 'Crypto', 'Cash']
 const STATUSES: InvoiceStatus[] = ['draft', 'sent', 'paid', 'overdue', 'cancelled']
 
+const LINE_TEMPLATES = [
+  { label: 'Página web', description: 'Desarrollo de página web' },
+  { label: 'App', description: 'Desarrollo de aplicación' },
+  { label: 'Automatización', description: 'Sistema de automatización' },
+  { label: 'Sistema automático', description: 'Sistema automático / bot 24-7' },
+  { label: 'Servicio', description: 'Servicio profesional' },
+  { label: 'Préstamo', description: 'Préstamo' },
+  { label: 'Inversión', description: 'Inversión de capital' },
+]
+
 export default function InvoiceForm({
   clients,
   invoice,
@@ -108,9 +118,28 @@ export default function InvoiceForm({
       <div>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-sm font-medium text-zinc-400">Líneas de servicio</h3>
-          <Button type="button" variant="secondary" onClick={() => setLines((p) => [...p, { ...EMPTY_LINE }])}>
-            + Añadir línea
-          </Button>
+          <div className="flex items-center gap-2">
+            <Select
+              className="w-48"
+              value=""
+              onChange={(e) => {
+                const template = LINE_TEMPLATES.find((t) => t.label === e.target.value)
+                if (template) setLines((p) => [...p, { ...EMPTY_LINE, description: template.description }])
+              }}
+            >
+              <option value="" disabled>
+                Plantilla…
+              </option>
+              {LINE_TEMPLATES.map((t) => (
+                <option key={t.label} value={t.label}>
+                  {t.label}
+                </option>
+              ))}
+            </Select>
+            <Button type="button" variant="secondary" onClick={() => setLines((p) => [...p, { ...EMPTY_LINE }])}>
+              + Añadir línea
+            </Button>
+          </div>
         </div>
 
         <Table>
