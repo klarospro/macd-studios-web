@@ -13,6 +13,7 @@
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.108.2",
     "@types/three": "^0.171.0",
+    "@types/ws": "^8.18.1",
     "clsx": "^2.1.1",
     "exceljs": "^4.4.0",
     "framer-motion": "^12.40.0",
@@ -26,6 +27,7 @@
     "stripe": "^22.6.2",
     "tailwind-merge": "^3.6.0",
     "three": "^0.171.0",
+    "ws": "^8.21.3",
     "zod": "^4.6.2"
   },
   "devDependencies": {
