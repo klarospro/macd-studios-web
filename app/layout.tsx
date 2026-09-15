@@ -2,6 +2,8 @@
 import { Playfair_Display, Inter, JetBrains_Mono, Fraunces } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import CookieBanner from "@/components/CookieBanner";
+import WhatsAppButton from "@/components/WhatsAppButton";
+import TelegramButton from "@/components/TelegramButton";
 import "./globals.css";
 
 const SITE_URL = "https://macdestudios.com";
@@ -94,6 +96,8 @@ export default function RootLayout({
         />
         {children}
         <CookieBanner />
+        <WhatsAppButton />
+        <TelegramButton />
         <Analytics />
       </body>
     </html>

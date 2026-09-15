@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 
 const STORAGE_KEY = "macd-cookie-consent";
 
+// Paneles internos autenticados: no son contenido publico, no necesitan aviso de cookies.
+const HIDDEN_PREFIXES = ["/admin", "/panel"];
+
 export default function CookieBanner() {
+  const pathname = usePathname();
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -24,6 +29,7 @@ export default function CookieBanner() {
   };
 
   if (!visible) return null;
+  if (HIDDEN_PREFIXES.some((p) => pathname?.startsWith(p))) return null;
 
   return (
     <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:max-w-sm z-50 bg-zinc-900 border border-yellow-600/30 rounded-2xl p-5 shadow-2xl">

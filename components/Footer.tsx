@@ -1,4 +1,4 @@
-﻿import { Send, Share2, Mail } from "lucide-react";
+﻿import { Send, Share2, Mail, Phone } from "lucide-react";
 import Image from "next/image";
 
 export default function Footer() {
@@ -25,6 +25,12 @@ export default function Footer() {
           <div>
             <h4 className="font-bold mb-4 text-yellow-500">Contacto</h4>
             <ul className="space-y-3 text-gray-400">
+              <li>
+                <a href="https://wa.me/34623474706" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-yellow-500 transition-colors">
+                  <Phone className="w-4 h-4" />
+                  WhatsApp: +34 623 47 47 06
+                </a>
+              </li>
               <li>
                 <a href="https://t.me/macdstudios" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-yellow-500 transition-colors">
                   <Send className="w-4 h-4" />
