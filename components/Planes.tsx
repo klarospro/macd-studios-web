@@ -112,15 +112,17 @@ export default function Planes() {
                 </div>
               </div>
 
-              <a
+              <motion.a
                 href="https://t.me/macdstudios"
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`flex items-center justify-center gap-2 w-full py-3 rounded-full font-bold mb-8 transition-all ${p.destacado ? "bg-gold-gradient text-black hover:scale-105" : "bg-white/10 text-white hover:bg-white/20"}`}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.93 }}
+                className={`flex items-center justify-center gap-2 w-full py-3 rounded-full font-bold mb-8 ${p.destacado ? "bg-gold-gradient text-black" : "bg-white/10 text-white hover:bg-white/20"}`}
               >
                 <Send className="w-4 h-4" />
                 Empezar ahora
-              </a>
+              </motion.a>
 
               <ul className="space-y-3">
                 {p.features.map((f, idx) => (

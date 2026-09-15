@@ -1,21 +1,26 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import Honeypot from '@/components/Honeypot'
+import { HONEYPOT_FIELD } from '@/lib/antiSpam'
 
 export default function LeadForm({ source, product }: { source: string; product: string }) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const formRef = useRef<HTMLFormElement>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!email.trim()) return
     setStatus('loading')
 
+    const honeypot = new FormData(formRef.current ?? undefined).get(HONEYPOT_FIELD)
+
     const res = await fetch('/api/lead', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, source, product })
+      body: JSON.stringify({ name, email, source, product, [HONEYPOT_FIELD]: honeypot })
     })
 
     setStatus(res.ok ? 'done' : 'error')
@@ -34,7 +39,8 @@ export default function LeadForm({ source, product }: { source: string; product:
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+    <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-3">
+      <Honeypot />
       <input
         type="text"
         placeholder="Tu nombre"

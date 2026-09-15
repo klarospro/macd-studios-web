@@ -35,15 +35,17 @@ export default function Navbar() {
             <a href="#contacto" className="text-gray-300 hover:text-yellow-500 font-medium transition-colors">Contacto</a>
           </div>
 
-          <a
+          <motion.a
             href="https://t.me/macdstudios"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden lg:inline-flex items-center gap-2 bg-gold-gradient text-black font-bold px-6 py-3 rounded-full hover:scale-105 transition-transform"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.93 }}
+            className="hidden lg:inline-flex items-center gap-2 bg-gold-gradient text-black font-bold px-6 py-3 rounded-full"
           >
             <Send className="w-4 h-4" />
             Cotizar ahora
-          </a>
+          </motion.a>
 
           <button onClick={() => setMobileOpen(!mobileOpen)} className="lg:hidden text-white p-2">
             {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -61,10 +63,16 @@ export default function Navbar() {
               <a href="#trabajos" onClick={() => setMobileOpen(false)} className="text-gray-300 hover:text-yellow-500 py-2">Trabajos</a>
               <a href="#planes" onClick={() => setMobileOpen(false)} className="text-gray-300 hover:text-yellow-500 py-2">Planes</a>
               <a href="#contacto" onClick={() => setMobileOpen(false)} className="text-gray-300 hover:text-yellow-500 py-2">Contacto</a>
-              <a href="https://t.me/macdstudios" target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-2 bg-gold-gradient text-black font-bold px-6 py-3 rounded-full mt-2">
+              <motion.a
+                href="https://t.me/macdstudios"
+                target="_blank"
+                rel="noopener noreferrer"
+                whileTap={{ scale: 0.93 }}
+                className="inline-flex items-center justify-center gap-2 bg-gold-gradient text-black font-bold px-6 py-3 rounded-full mt-2"
+              >
                 <Send className="w-4 h-4" />
                 Cotizar ahora
-              </a>
+              </motion.a>
             </div>
           </motion.div>
         )}

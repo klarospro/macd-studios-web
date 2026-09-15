@@ -1,6 +1,10 @@
 ﻿import type { Metadata } from "next";
 import { Playfair_Display, Inter, JetBrains_Mono, Fraunces } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
+import CookieBanner from "@/components/CookieBanner";
 import "./globals.css";
+
+const SITE_URL = "https://macdestudios.com";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -30,9 +34,50 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "MACD STUDIOS - Automatizacion con IA para tu negocio",
-  description: "Webs premium, bots 24/7 con IA y sistemas que venden. Automatizamos clinicas, restaurantes e inmobiliarias en Espana.",
-  keywords: ["automatizacion", "IA", "bots", "web", "Espana", "negocios"],
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "MACD Studios - Automatizacion con IA para tu negocio",
+    template: "%s | MACD Studios",
+  },
+  description: "Webs premium, bots 24/7 con IA y sistemas que venden. Automatizamos clinicas, restaurantes, inmobiliarias y comunidades en Espana.",
+  keywords: ["automatizacion", "IA", "bots WhatsApp", "diseno web", "Espana", "negocios"],
+  authors: [{ name: "MACD Studios" }],
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    locale: "es_ES",
+    url: SITE_URL,
+    siteName: "MACD Studios",
+    title: "MACD Studios - Automatizacion con IA para tu negocio",
+    description: "Webs premium, bots 24/7 con IA y sistemas que venden. Automatizamos clinicas, restaurantes, inmobiliarias y comunidades en Espana.",
+    images: [{ url: "/images/logo.png", width: 1200, height: 630, alt: "MACD Studios" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MACD Studios - Automatizacion con IA para tu negocio",
+    description: "Webs premium, bots 24/7 con IA y sistemas que venden.",
+    images: ["/images/logo.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true },
+  },
+};
+
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "MACD Studios",
+  legalName: "MACD Studios LLC",
+  url: SITE_URL,
+  logo: `${SITE_URL}/images/logo.png`,
+  email: "hola@macdestudios.com",
+  sameAs: [
+    "https://t.me/macdstudios",
+    "https://www.instagram.com/macd_studios14",
+  ],
+  areaServed: "ES",
 };
 
 export default function RootLayout({
@@ -42,7 +87,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className={`${playfair.variable} ${inter.variable} ${jetbrains.variable} ${fraunces.variable}`}>
-      <body>{children}</body>
+      <body>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
+        {children}
+        <CookieBanner />
+        <Analytics />
+      </body>
     </html>
   );
 }

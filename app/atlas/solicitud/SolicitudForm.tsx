@@ -3,6 +3,8 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
+import Honeypot from '@/components/Honeypot'
+import { HONEYPOT_FIELD } from '@/lib/antiSpam'
 
 const TIPOS = [
   { id: 'inversor', t: 'Inversor', d: 'Confía capital para gestión bajo la metodología.' },
@@ -39,6 +41,7 @@ export default function SolicitudForm() {
       agenda_date: agendaDate,
       agenda_slot: agendaSlot,
       message: fd.get('message'),
+      [HONEYPOT_FIELD]: fd.get(HONEYPOT_FIELD),
     }
     try {
       const res = await fetch('/api/atlas/solicitud', {
@@ -98,6 +101,7 @@ export default function SolicitudForm() {
       </div>
 
       <form onSubmit={onSubmit} className="space-y-6" noValidate>
+        <Honeypot />
         {/* Tipo de cuenta */}
         <fieldset>
           <legend className="mb-3 text-[12px] font-medium uppercase tracking-[0.14em] text-atlas-muted">

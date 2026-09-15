@@ -3,6 +3,8 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
+import Honeypot from '@/components/Honeypot'
+import { HONEYPOT_FIELD } from '@/lib/antiSpam'
 
 const PERIODOS = [
   { id: 'trimestral', t: 'Trimestral', d: 'Retiro de ganancias cada trimestre.' },
@@ -29,6 +31,7 @@ export default function RetiroForm() {
       amount: fd.get('amount'),
       currency: fd.get('currency'),
       notes: fd.get('notes'),
+      [HONEYPOT_FIELD]: fd.get(HONEYPOT_FIELD),
     }
     try {
       const res = await fetch('/api/atlas/retiro', {
@@ -88,6 +91,7 @@ export default function RetiroForm() {
       </div>
 
       <form onSubmit={onSubmit} className="space-y-6" noValidate>
+        <Honeypot />
         <fieldset>
           <legend className="mb-3 text-[12px] font-medium uppercase tracking-[0.14em] text-atlas-muted">
             Periodicidad

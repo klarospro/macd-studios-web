@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { atlasDb } from '@/lib/atlas-supabase'
+import { HONEYPOT_FIELD, isHoneypotTriggered } from '@/lib/antiSpam'
 
 const PERIODS = new Set(['trimestral', 'anual'])
 
@@ -10,6 +11,8 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Cuerpo inválido' }, { status: 400 })
   }
+
+  if (isHoneypotTriggered(body[HONEYPOT_FIELD])) return NextResponse.json({ ok: true })
 
   const name = String(body.name ?? '').trim()
   const email = String(body.email ?? '').trim()
