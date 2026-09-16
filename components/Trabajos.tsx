@@ -228,20 +228,19 @@ export default function Trabajos() {
               <div>
                 <div className="text-yellow-500 text-xs tracking-widest uppercase mb-3">Resultado (backtest)</div>
                 <p className="text-white leading-relaxed">
-                  Rentabilidad anualizada de{" "}
-                  <span className="text-yellow-400 font-semibold">+14.8%</span> con un drawdown
-                  maximo de -11.2% en el periodo evaluado.
+                  Rendimiento consistente y control de riesgo disciplinado a lo largo del periodo
+                  evaluado en backtesting.
                 </p>
                 <p className="text-gray-500 text-xs mt-2">
-                  Cifras basadas en backtesting, no constituyen garantia de rendimiento futuro.
+                  Resultados de backtesting, no constituyen garantia de rendimiento futuro.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { valor: "24/7", label: "monitoreo automatizado" },
                   { valor: "4 mercados", label: "cripto · forex · indices · prediction" },
-                  { valor: "+14.8%", label: "anualizado (backtest)" },
-                  { valor: "-11.2%", label: "drawdown maximo" },
+                  { valor: "Multi-activo", label: "diversificacion de riesgo" },
+                  { valor: "Auditable", label: "registro inmutable" },
                 ].map((s, i) => (
                   <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-4">
                     <div className="text-yellow-400 font-bold text-lg">{s.valor}</div>
