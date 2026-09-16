@@ -1,0 +1,40 @@
+# Atlas AI — ciclo PAPER de la Estrategia A (ICT IFVG, NQ) como servicio oneshot.
+# SOLO PAPER: no ejecuta nada en ningún broker, no requiere credenciales de IG/Deriv.
+# Objetivo único: acumular operaciones REALES sobre precios reales (Yahoo Finance) para tener,
+# con el tiempo, más muestra que los 71 días que da el backtest — ver
+# 28_ESTRATEGIA_ICT_IFVG/06_VALIDACION_NQ_YAHOO.md. NO tocar mientras no haya aprobación
+# explícita de Moisés para pasar a demo/real con IG (ver 05_PREGUNTAS_ABIERTAS.md #3).
+#
+# A diferencia de atlas-cycle.service (TSMOM, 1x/día porque usa velas diarias), esta estrategia
+# opera en 5M con ventana horaria estrecha (9:30-10:10 NY) y gestión de posición durante el resto
+# del día — necesita el timer de 5 minutos (atlas-ifvg-cycle.timer), no el diario.
+#
+# Instalar en: /etc/systemd/system/atlas-ifvg-cycle.service
+# Ajusta User, WorkingDirectory y la ruta de node a tu VPS si difieren de atlas-cycle.service.
+
+[Unit]
+Description=Atlas AI - ciclo PAPER de ICT IFVG (NQ, Yahoo Finance)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=atlas
+Group=atlas
+WorkingDirectory=/opt/atlas/ATLAS-AI/engine
+
+# Sin --env-file: el script no necesita ninguna credencial (Yahoo es público, sin login).
+ExecStart=/usr/bin/node --import tsx src/live/ictIfvgPaperCycle.ts
+
+# Endurecimiento básico, igual que atlas-cycle.service.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/atlas/ATLAS-AI/engine/runtime
+
+# Si Yahoo falla puntualmente, el timer reintenta en 5 min; no reiniciamos en bucle.
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

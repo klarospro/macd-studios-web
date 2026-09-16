@@ -3,6 +3,7 @@
 Estado: diseño hecho, pendiente aprobación de Moisés antes de activar (incluso en paper) el risk gate en el motor.
 Prioridad del producto (CLAUDE.md): 1) preservación de capital, 2) gestión de riesgo — estas reglas son el núcleo de ambas.
 Detalle completo (fórmulas, tablas, orden de evaluación del risk gate): `01_DETALLE_FORMULAS_Y_PARAMETROS.md`.
+**Adenda scalping (riesgo medio, convive con TSMOM, 2026-07-17)**: `02_RESUMEN_SCALPING_RIESGO_MEDIO.md` + `03_DETALLE_SCALPING_RIESGO_MEDIO.md` — BLOQUEANTE hasta aprobación; no cambia estas reglas núcleo, añade un segundo motor con sub-presupuesto dedicado dentro del mismo techo agregado.
 
 ## 1. Riesgo por operación (position sizing)
 Qué/por qué: % del capital que se pierde si salta el stop-loss; acota el daño de una sola operación pase lo que pase.
@@ -32,6 +33,7 @@ Cálculo: `Riesgo_agregado = Σ riesgo_€ de posiciones abiertas` ≤ techo (de
 Correlación: instrumentos con `|ρ| > 0.7` (umbral y método de cálculo exacto: sin confirmar) cuentan como UNA sola posición a efectos del techo agregado.
 Por qué: dos posiciones "independientes" en instrumentos correlacionados son en la práctica una sola apuesta mayor de lo que el sizing individual sugiere.
 Riesgo: correlaciones calculadas con pocos datos o en régimen distinto subestiman el riesgo real (en crisis, "todo cae junto").
+Nota (2026-07-17): en código hoy (`riskGate.ts`) este cálculo suma TODAS las posiciones abiertas sin agrupar por `correlationGroup` — el campo existe en el dominio pero la agrupación real no está implementada. Ver `03_DETALLE_SCALPING_RIESGO_MEDIO.md` §4 para el diseño de los caps de correlación (aplica igual a TSMOM y a scalping).
 
 ## 5. Circuit breakers / kill-switch
 Condiciones (defaults): (a) límite de pérdida diaria alcanzado; (b) **4** pérdidas consecutivas (rango 3–5); (c) errores/latencia del broker — default 3 fallos/timeouts en ventana corta (ventana exacta: sin confirmar, depende de límites reales de la API de Deriv); (d) excepción no controlada en el risk gate → fail-safe CERRADO (si el gate falla, la orden NO se envía).
