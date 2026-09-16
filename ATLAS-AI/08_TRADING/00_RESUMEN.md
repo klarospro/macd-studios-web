@@ -1,7 +1,7 @@
 # Motor de trading — arquitectura en modo paper (Fase 3, paso 1)
 
 Estado: diseño hecho, pendiente aprobación de Moisés. Modo actual: 100% PAPER/DEMO (cuenta Deriv-Demo, dinero virtual). Ninguna cuenta real se conecta sin aprobación explícita de Moisés con los límites de 09_RISK ya escritos y aprobados.
-Detalle (interfaz del adaptador, ciclo de vida completo, esquema de auditoría): `01_DETALLE_ADAPTADOR_Y_CICLO_DE_VIDA.md`. Fondeos/prop firms (reglas, automatización, diseño de estrategia compatible): `02_DETALLE_FONDEOS_PROP_FIRMS.md` (investigación 2026-07-07).
+Detalle (interfaz del adaptador, ciclo de vida completo, esquema de auditoría): `01_DETALLE_ADAPTADOR_Y_CICLO_DE_VIDA.md`. Fondeos forex/CFD (FTMO): `02_DETALLE_FONDEOS_PROP_FIRMS.md` (2026-07-07). Fondeos de FUTUROS (Apex/Topstep/Lucid): `03_DETALLE_FONDEOS_FUTUROS_APEX_TOPSTEP_LUCID.md` (2026-09-15).
 
 ## 1. Adaptador de broker
 Qué: interfaz común `BrokerAdapter` que implementa cada broker: conectar, autenticar, cotizar, enviar orden, consultar posiciones/cuenta, cancelar orden, desconectar. Vive en `lib/trading/adapters/` dentro del monolito modular (decisión ya tomada en 02_ARCHITECTURE).
@@ -25,8 +25,11 @@ Después: MT5 (11_MT5 — bloqueado por requisito de terminal Windows, ver 00_FO
 ## 4. Auditoría
 Cada evento (señal, resultado del risk gate, orden enviada, fill, orden rechazada) se escribe en `trading_audit_log` (append-only, WORM, RLS por tenant — definido en 18_SECURITY): `tenant_id, actor, acción, params, timestamp, estado antes/después`. INSERT solo desde backend de confianza; UPDATE/DELETE revocado para todos. Las órdenes rechazadas llevan además `motivo` y `regla_disparada`.
 
-## 5. Fondeos / prop firms (resumen — detalle en `02_DETALLE_FONDEOS_PROP_FIRMS.md`)
-FTMO (única fuente verificada oficialmente en esta sesión): profit target 10%/5% por fase, max daily loss 3-5%, max drawdown total 10% (trailing en 1-Step, estático en 2-Step), ≥4 días mínimos de trading (2-Step), EA/algo trading SÍ permitido con restricciones (no exploit de errores, no manipulación multi-cuenta, no gap trading, límite 2000 requests/día, no ceder acceso a terceros). Reglas varían MUCHO por firm y cambian sin aviso — verificar siempre contra la web oficial del firm elegido. Para no violar el drawdown con una racha normal de trend-following: preferir firms con drawdown ESTÁTICO, buffer interno al 50-70% del límite del firm (no operar al límite exacto), sizing más conservador que el 1% propio, y ajustar a la "Best Day Rule" (consistencia) si el firm la tiene.
+## 5. Fondeos forex/CFD (resumen — detalle en `02_DETALLE_FONDEOS_PROP_FIRMS.md`)
+FTMO (única fuente verificada oficialmente en esa sesión): profit target 10%/5% por fase, max daily loss 3-5%, max drawdown total 10% (trailing en 1-Step, estático en 2-Step), ≥4 días mínimos de trading (2-Step), EA/algo trading SÍ permitido con restricciones (no exploit de errores, no manipulación multi-cuenta, no gap trading, límite 2000 requests/día, no ceder acceso a terceros). Reglas varían MUCHO por firm y cambian sin aviso.
+
+## 5b. Fondeos de FUTUROS (resumen — detalle en `03_DETALLE_FONDEOS_FUTUROS_APEX_TOPSTEP_LUCID.md`, 2026-09-15)
+Apex, Topstep y Lucid Trading (futuros CME, no forex/CFD) ejecutan sobre Rithmic/Tradovate/TopstepX — no MT5. Hallazgo clave: el bloqueo de VPS Windows de `11_MT5` era específico de fondeos MT5/forex-CFD y **no aplica igual aquí** — las tres plataformas de futuros exponen APIs headless (sin GUI). Pero cada firm pone un obstáculo distinto para el bot 24/7: **Apex** permite automatización solo en evaluación y la **prohíbe explícitamente en la cuenta financiada** (cierre de cuenta si se detecta); **Topstep** tiene la mejor API oficial (TopstepX/ProjectX, documentada, permitida en evaluación y financiada) pero sus Términos de Uso **prohíben textualmente ejecutar desde VPS/servidor remoto** — el tráfico de órdenes debe originarse del "dispositivo personal"; **Lucid Trading** permite automatización completa en evaluación y financiada y no se encontró prohibición de VPS equivalente, pero su web bloqueó todo fetch directo (403) por lo que se marca de confianza media, pendiente de confirmar por escrito con su soporte. **Recomendación de orden**: Lucid primero (si soporte confirma la política de VPS por escrito) → Topstep en paralelo solo para trading manual/desde equipo propio → Apex descartado para el bot.
 
 ## 6. Diferido a pasos siguientes de Fase 3
 - **11_MT5**: conexión real a MT5 — requiere VPS Windows aparte (ver 00_FOUNDATION/03) — no se aborda aquí. Para cuentas de FONDEO específicamente, ver `11_MT5/02_DETALLE_FONDEOS_MT5_MULTICUENTA.md`.
@@ -38,7 +41,8 @@ FTMO (única fuente verificada oficialmente en esta sesión): profit target 10%/
 - Endpoints exactos, formato de autenticación y límites de tasa de la API de Deriv.
 - Si Vercel (serverless) soporta bien una conexión WebSocket persistente a Deriv, o si el motor necesita extraerse como proceso propio en el VPS (señal ya anotada en 02_ARCHITECTURE, sin resolver).
 - Formato/prefijo exacto de las cuentas demo de Deriv.
-- Firm(s) de fondeo concreto(s) que usará Moisés — ver `02_DETALLE_FONDEOS_PROP_FIRMS.md` para todo lo que depende de esta decisión.
+- Firm(s) de fondeo concreto(s) que usará Moisés — ver `02_DETALLE_FONDEOS_PROP_FIRMS.md` y `03_DETALLE_FONDEOS_FUTUROS_APEX_TOPSTEP_LUCID.md` para todo lo que depende de esta decisión.
+- Política de VPS/hosting de Lucid Trading (web oficial bloqueó fetch automatizado, ni confirmada ni descartada).
 
 ## Fuentes
-Documentación oficial de Deriv API (api.deriv.com): NO consultada en esta sesión — prioridad #1 de fuente para el siguiente paso de implementación. 02_ARCHITECTURE/00_RESUMEN.md (monolito modular, ya confirmado). 18_SECURITY/00_RESUMEN.md (patrón de auditoría append-only, ya confirmado). `ftmo.com/en/trading-objectives/` y `ftmo.com/en/forbidden-trading-practices/` (fondeos, confirmado 2026-07-07) — ver `02_DETALLE_FONDEOS_PROP_FIRMS.md` para el resto de fuentes.
+Documentación oficial de Deriv API (api.deriv.com): NO consultada en esta sesión — prioridad #1 de fuente para el siguiente paso de implementación. 02_ARCHITECTURE/00_RESUMEN.md (monolito modular, ya confirmado). 18_SECURITY/00_RESUMEN.md (patrón de auditoría append-only, ya confirmado). `ftmo.com/en/trading-objectives/` y `ftmo.com/en/forbidden-trading-practices/` (fondeos FTMO, confirmado 2026-07-07). `topstep.com/express-funded-account-rules`, `help.topstep.com` (fondeos futuros, confirmado 2026-09-15) — ver `02_DETALLE_FONDEOS_PROP_FIRMS.md` y `03_DETALLE_FONDEOS_FUTUROS_APEX_TOPSTEP_LUCID.md` para el resto de fuentes.

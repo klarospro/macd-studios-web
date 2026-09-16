@@ -42,3 +42,21 @@ next-env.d.ts
 
 # Snapshot zip (no versionar)
 /ATLAS-AI.zip
+
+.vercel
+.env*
+
+# Claude Code: config local y worktrees, no versionar
+.claude/settings.local.json
+.claude/worktrees/
+
+# Mirrors/backups locales del VPS (incluyen node_modules, no son fuente)
+ATLAS-AI/engine/.vps-mirror/
+ATLAS-AI/engine/.vps-mirror2/
+
+# Artefactos de backtesting y cache de Python
+ATLAS-AI/engine/src/backtest/out/
+**/__pycache__/
+
+# Estado local del CLI de Supabase
+supabase/.temp/

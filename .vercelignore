@@ -1,0 +1,4 @@
+# El motor de trading (ATLAS-AI/) es un proyecto aparte: la web ya no lee
+# ningun archivo suyo en tiempo de build ni de ejecucion (ver lib/atlas-panel-data/),
+# asi que se excluye entero del deploy de Vercel.
+ATLAS-AI/

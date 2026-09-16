@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
-import dashboard from '@/ATLAS-AI/engine/dashboard/sample-data/dashboard.json'
-import account from '@/ATLAS-AI/engine/dashboard/sample-data/account.json'
+import dashboard from '@/lib/atlas-panel-data/dashboard.json'
+import account from '@/lib/atlas-panel-data/account.json'
 import { LineChart, Spark } from './Charts'
 
 export const metadata: Metadata = {

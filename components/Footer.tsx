@@ -1,4 +1,4 @@
-﻿import { Send, Share2, Mail } from "lucide-react";
+﻿import { Send, Share2, Mail, Phone } from "lucide-react";
 import Image from "next/image";
 
 export default function Footer() {
@@ -26,6 +26,12 @@ export default function Footer() {
             <h4 className="font-bold mb-4 text-yellow-500">Contacto</h4>
             <ul className="space-y-3 text-gray-400">
               <li>
+                <a href="https://wa.me/34623474706" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-yellow-500 transition-colors">
+                  <Phone className="w-4 h-4" />
+                  WhatsApp: +34 623 47 47 06
+                </a>
+              </li>
+              <li>
                 <a href="https://t.me/macdstudios" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-yellow-500 transition-colors">
                   <Send className="w-4 h-4" />
                   Telegram: @macdstudios
@@ -47,8 +53,13 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-white/10 pt-8 text-center text-gray-500 text-sm">
-          (c) 2026 MACD STUDIOS - Automatizacion con IA para tu negocio
+        <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-gray-500 text-sm">
+          <span>(c) 2026 MACD STUDIOS - Automatizacion con IA para tu negocio</span>
+          <div className="flex items-center gap-4">
+            <a href="/legal/aviso-legal" className="hover:text-yellow-500 transition-colors">Aviso legal</a>
+            <a href="/legal/privacidad" className="hover:text-yellow-500 transition-colors">Privacidad</a>
+            <a href="/legal/cookies" className="hover:text-yellow-500 transition-colors">Cookies</a>
+          </div>
         </div>
       </div>
     </footer>

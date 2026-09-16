@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { HONEYPOT_FIELD, isHoneypotTriggered } from '@/lib/antiSpam'
 
 export async function POST(req: NextRequest) {
-  const { name, email, source, product } = await req.json()
+  const body = await req.json()
+  const { name, email, source, product } = body
 
+  if (isHoneypotTriggered(body[HONEYPOT_FIELD])) return NextResponse.json({ ok: true })
   if (!email) return NextResponse.json({ error: 'Email requerido' }, { status: 400 })
 
   // Guardar en Supabase
