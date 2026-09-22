@@ -1,5 +1,5 @@
 import { requireSession } from '@/lib/admin/dal'
-import { PageHeader } from '@/components/admin/ui'
+import { PageHeader, Card } from '@/components/admin/ui'
 import AgentPanel from './AgentPanel'
 import {
   runMarketingAgent,
@@ -22,11 +22,13 @@ export default async function AgentsPage() {
       />
 
       <div className="grid md:grid-cols-2 gap-4">
-        <AgentPanel
-          title="🎯 Ventas — Max"
-          description="Ya está corriendo en Telegram, fuera de este panel. Responde clientes, cotiza y avisa cuando un lead está caliente."
-          action={async () => ({ output: 'Activo en n8n (workflow "My workflow 3"). Nada que hacer aquí — solo informativo.' })}
-        />
+        <Card>
+          <h2 className="text-white font-medium">🎯 Ventas — Max</h2>
+          <p className="text-sm text-zinc-500 mt-1">
+            Ya está corriendo en Telegram (@macdstudios_bot), fuera de este panel. Responde clientes, cotiza y avisa
+            cuando un lead está caliente. Se administra desde n8n, no desde aquí.
+          </p>
+        </Card>
 
         <AgentPanel
           title="📣 Marketing"
