@@ -180,3 +180,18 @@ export interface Distribution {
   receipt_url: string | null
   created_at: string
 }
+
+export type ProspectStatus = 'prospecto' | 'propuesta_enviada' | 'negociacion' | 'ganado' | 'perdido'
+
+export interface Prospect {
+  id: string
+  client_name: string
+  contact: string | null
+  service: string | null
+  amount: number | null
+  currency: string
+  status: ProspectStatus
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
