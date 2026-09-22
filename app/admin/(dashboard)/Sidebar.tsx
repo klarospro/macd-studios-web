@@ -15,6 +15,7 @@ import {
   LogOut,
   Activity,
   Briefcase,
+  Bot,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -29,6 +30,7 @@ const NAV = [
   { href: '/admin/reports', label: 'Reports', icon: BarChart3 },
   { href: '/admin/projects', label: 'Proyectos', icon: Activity },
   { href: '/admin/prospects', label: 'Propuestas', icon: Briefcase },
+  { href: '/admin/agents', label: 'Agentes', icon: Bot },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ]
 
