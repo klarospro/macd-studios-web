@@ -13,6 +13,8 @@ import {
   BarChart3,
   Settings,
   LogOut,
+  Activity,
+  Briefcase,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -25,6 +27,8 @@ const NAV = [
   { href: '/admin/investments', label: 'Investments', icon: HandCoins },
   { href: '/admin/documents', label: 'Documents', icon: FolderOpen },
   { href: '/admin/reports', label: 'Reports', icon: BarChart3 },
+  { href: '/admin/projects', label: 'Proyectos', icon: Activity },
+  { href: '/admin/prospects', label: 'Propuestas', icon: Briefcase },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ]
 
