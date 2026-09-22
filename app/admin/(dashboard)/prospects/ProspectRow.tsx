@@ -36,6 +36,14 @@ export default function ProspectRow({ prospect }: { prospect: Prospect }) {
         </Select>
       </Td>
       <Td>
+        <a
+          href={`/admin/prospects/${prospect.id}/pdf`}
+          target="_blank"
+          rel="noopener"
+          className="text-xs text-[#D4AF37] hover:text-[#E8C766] underline underline-offset-2 mr-3"
+        >
+          PDF
+        </a>
         <Button
           type="button"
           variant="danger"
