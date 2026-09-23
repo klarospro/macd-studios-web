@@ -195,3 +195,18 @@ export interface Prospect {
   created_at: string
   updated_at: string
 }
+
+export interface BotLead {
+  id: string
+  nombre: string | null
+  empresa: string | null
+  telefono: string | null
+  sector: string | null
+  problema: string | null
+  plan_interes: string | null
+  pais: string | null
+  presupuesto: string | null
+  estado: string
+  canal: string
+  created_at: string
+}
