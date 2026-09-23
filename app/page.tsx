@@ -6,6 +6,7 @@ import ComoFunciona from "@/components/ComoFunciona";
 import Planes from "@/components/Planes";
 import EraDigital from "@/components/EraDigital";
 import BotMACD from "@/components/BotMACD";
+import OfertasSignup from "@/components/OfertasSignup";
 import Footer from "@/components/Footer";
 
 export default function Home() {
@@ -19,6 +20,7 @@ export default function Home() {
       <Planes />
       <EraDigital />
       <BotMACD />
+      <OfertasSignup />
       <Footer />
     </main>
   );
