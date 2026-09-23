@@ -113,7 +113,7 @@ export default function Planes() {
               </div>
 
               <motion.a
-                href="https://t.me/macdstudios"
+                href="https://t.me/macdstudios_bot"
                 target="_blank"
                 rel="noopener noreferrer"
                 whileHover={{ scale: 1.05 }}

@@ -36,7 +36,7 @@ export default function Navbar() {
           </div>
 
           <motion.a
-            href="https://t.me/macdstudios"
+            href="https://t.me/macdstudios_bot"
             target="_blank"
             rel="noopener noreferrer"
             whileHover={{ scale: 1.05 }}
@@ -64,7 +64,7 @@ export default function Navbar() {
               <a href="#planes" onClick={() => setMobileOpen(false)} className="text-gray-300 hover:text-yellow-500 py-2">Planes</a>
               <a href="#contacto" onClick={() => setMobileOpen(false)} className="text-gray-300 hover:text-yellow-500 py-2">Contacto</a>
               <motion.a
-                href="https://t.me/macdstudios"
+                href="https://t.me/macdstudios_bot"
                 target="_blank"
                 rel="noopener noreferrer"
                 whileTap={{ scale: 0.93 }}

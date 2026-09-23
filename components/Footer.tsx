@@ -32,7 +32,7 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <a href="https://t.me/macdstudios" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-yellow-500 transition-colors">
+                <a href="https://t.me/macdstudios_bot" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:text-yellow-500 transition-colors">
                   <Send className="w-4 h-4" />
                   Telegram: @macdstudios
                 </a>

@@ -76,7 +76,7 @@ const organizationJsonLd = {
   logo: `${SITE_URL}/images/logo.png`,
   email: "hola@macdestudios.com",
   sameAs: [
-    "https://t.me/macdstudios",
+    "https://t.me/macdstudios_bot",
     "https://www.instagram.com/macd_studios14",
   ],
   areaServed: "ES",

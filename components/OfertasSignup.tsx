@@ -40,10 +40,10 @@ export default function OfertasSignup() {
         >
           <Gift className="w-10 h-10 text-yellow-500 mx-auto mb-4" />
           <h2 className="text-3xl lg:text-4xl font-bold mb-3">
-            Recibe <span className="text-gold-gradient italic">ofertas y novedades</span>
+            ¿Quieres ser parte de <span className="text-gold-gradient italic">MACD?</span>
           </h2>
           <p className="text-gray-400 max-w-md mx-auto mb-8">
-            Regístrate y te avisamos de promociones, plazas para cursos y casos nuevos antes que nadie.
+            Diseña tu presupuesto, cuéntanos tu proyecto y regístrate — te llevas un bono de descuento para tu primer proyecto.
           </p>
 
           {status === "done" ? (
@@ -81,7 +81,7 @@ export default function OfertasSignup() {
                 disabled={status === "loading"}
                 className="bg-gold-gradient text-black font-bold py-3 rounded-lg hover:scale-[1.02] transition-transform disabled:opacity-50"
               >
-                {status === "loading" ? "Enviando..." : "Quiero recibir ofertas"}
+                {status === "loading" ? "Enviando..." : "Quiero mi bono de descuento"}
               </button>
               {status === "error" && (
                 <p className="text-red-400 text-xs text-center">Algo falló. Intenta de nuevo.</p>

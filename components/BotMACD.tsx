@@ -48,7 +48,7 @@ export default function BotMACD() {
         addBotMessage(`Perfecto. Para tu caso te recomiendo el ${recomendacion}.\n\nMoises, nuestro fundador, te puede dar todos los detalles y un presupuesto personalizado AHORA mismo por Telegram. Le escribes?`, ["Si, hablar con Moises"]);
         break;
       case "final":
-        window.open("https://t.me/macdstudios", "_blank");
+        window.open("https://t.me/macdstudios_bot", "_blank");
         break;
     }
   };

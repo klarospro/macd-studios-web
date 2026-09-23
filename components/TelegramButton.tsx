@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { Send } from "lucide-react";
 
-const TELEGRAM_URL = "https://t.me/macdstudios";
+const TELEGRAM_URL = "https://t.me/macdstudios_bot";
 
 // Igual que WhatsAppButton: no se muestra en admin/panel/atlas/pay.
 const HIDDEN_PREFIXES = ["/admin", "/panel", "/atlas", "/pay"];
