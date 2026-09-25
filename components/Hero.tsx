@@ -105,8 +105,8 @@ export default function Hero() {
             <div className="text-sm text-gray-400 mt-1">Atencion con IA</div>
           </div>
           <div className="text-center">
-            <div className="text-4xl font-bold text-gold-gradient">70%</div>
-            <div className="text-sm text-gray-400 mt-1">Menos no-shows</div>
+            <div className="text-4xl font-bold text-gold-gradient">&lt;1 min</div>
+            <div className="text-sm text-gray-400 mt-1">Respuesta a cada cliente</div>
           </div>
         </motion.div>
       </div>
