@@ -50,3 +50,47 @@ export async function sendInvoiceEmail({
     attachments: [{ filename: `${invoiceNumber}.pdf`, content: pdfBuffer }],
   })
 }
+
+const escapeHtml = (s: string) =>
+  s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
+
+const CONTACTO_LABEL: Record<string, string> = {
+  whatsapp: 'WhatsApp',
+  llamada: 'una llamada',
+  email: 'email',
+}
+
+// Confirmación automática al lead que pide la auditoría gratis desde la web.
+export async function sendAuditConfirmationEmail({
+  to,
+  nombre,
+  contacto,
+}: {
+  to: string
+  nombre: string
+  contacto: string
+}) {
+  const resend = getResend()
+  const from = process.env.RESEND_FROM_CONTACT || 'MACD Studios <hola@macdestudios.com>'
+  const via = CONTACTO_LABEL[contacto] ?? 'email'
+
+  await resend.emails.send({
+    from,
+    to,
+    replyTo: process.env.ADMIN_EMAIL || undefined,
+    subject: 'Recibimos tu solicitud de auditoría — MACD Studios',
+    html: `
+      <div style="font-family: Arial, sans-serif; background:#0A0A0A; color:#f5f5f5; padding:32px;">
+        <h2 style="color:#D4AF37; margin-bottom:4px;">MACD Studios</h2>
+        <p>Saludos, ${escapeHtml(nombre)}.</p>
+        <p>Recibimos tu solicitud de <strong>auditoría gratis</strong>. Vamos a estudiar tu caso y te
+        contactamos por <strong>${via}</strong> para agendar una llamada, donde te mostramos dónde se te
+        escapan clientes y cómo solucionarlo.</p>
+        <p>Si quieres adelantarte, puedes hablar ya con Max, nuestro asistente, en
+        <a href="https://t.me/macdstudios_bot" style="color:#D4AF37;">t.me/macdstudios_bot</a>.</p>
+        <p>— Moisés, MACD Studios</p>
+        <p style="color:#666; font-size:12px; margin-top:32px;">Recibes este correo porque solicitaste una auditoría en macdestudios.com.</p>
+      </div>
+    `,
+  })
+}

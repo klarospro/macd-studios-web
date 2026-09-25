@@ -6,7 +6,7 @@ import Image from "next/image";
 const servicios = [
   { img: "/images/servicios/servicio-web.jpg", titulo: "Web Premium", desc: "Sitios profesionales que convierten visitantes en clientes. Diseno cinematografico y velocidad extrema." },
   { img: "/images/servicios/servicio-bot.jpg", titulo: "Bot IA 24/7", desc: "Asistente con inteligencia artificial que atiende, cualifica y vende en WhatsApp y Telegram sin descanso." },
-  { img: "/images/servicios/servicio-citas.jpg", titulo: "Citas y Reservas", desc: "Sistema de agenda con calendario que reduce no-shows un 70% con recordatorios automaticos." },
+  { img: "/images/servicios/servicio-citas.jpg", titulo: "Citas y Reservas", desc: "Sistema de agenda con calendario que reduce las citas perdidas con recordatorios automaticos." },
   { img: "/images/servicios/servicio-dashboard.jpg", titulo: "Dashboard", desc: "Panel de control donde gestionas clientes, citas, ventas y metricas en tiempo real." },
   { img: "/images/servicios/servicio-notif.jpg", titulo: "Notificaciones", desc: "Recordatorios automaticos por email y WhatsApp. Tus clientes nunca olvidan su cita." },
   { img: "/images/servicios/servicio-marketing.jpg", titulo: "Marketing y Redes", desc: "Gestion de redes sociales y campanas publicitarias que atraen clientes reales." },

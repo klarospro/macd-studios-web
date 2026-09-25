@@ -12,9 +12,14 @@ PLANES BASE (agencia web):
 Extras: redes sociales +200€/mes, ads 15% de inversión, llamadas IA +100€/mes, multi-local +80€/mes.
 Descuentos: LatAm -25% a -30%. Pagos fraccionados disponibles.
 
-SEGUNDA LÍNEA — MACD Restaurant OS (TPV/ERP hostelería):
-Básico 2.638€ + 110€/mes, Profesional 4.963€ + 180€/mes, Enterprise IA 6.706€ + 260€/mes.
-Incluye hardware, WhatsApp IA 24/7, CRM, sin comisión por venta (diferenciador frente a Square/Ágora/Last.app/Revo/Glop).
+NO ES UN PRODUCTO — MACD Restaurant OS (TPV/ERP hostelería) es un presupuesto hecho a medida
+para un único cliente (Santo Cali). Solo se construye si ese cliente lo aprueba. No ofrecerlo, no
+citar sus precios. Para otros negocios, todo desarrollo a medida se cotiza caso a caso.
+
+NICHO PRIORITARIO PARA CAPTACIÓN: inmobiliarias. Proyectos reales como referencia: inmobiliaria
+(demo vista-inmobiliaria), iglesia (Vida Nueva Reus) y restaurante (presupuesto Santo Cali).
+
+GANCHO DE CAPTACIÓN: auditoría gratis ("cuántos clientes pierdes por contestar tarde"), sin bonos de descuento.
 
 DEMOS: dental (aurora-dental-demo-yr9e.vercel.app), restaurante (pizza-studio-demo.vercel.app),
 inmobiliaria (vista-inmobiliaria-demo-5w7y.vercel.app), agencia (macdestudios.com).
