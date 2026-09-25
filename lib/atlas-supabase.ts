@@ -41,10 +41,12 @@ let cached: SupabaseClient | null = null
 
 export function atlasDb(): SupabaseClient {
   if (cached) return cached
-  const key = clean(process.env.SUPABASE_SERVICE_KEY) ?? fromEngineEnv('SUPABASE_SERVICE_KEY')
-  // La URL se deriva de la KEY resuelta para que ambas apunten SIEMPRE al mismo
-  // proyecto (el env del web trae una SUPABASE_URL vieja de otro proyecto).
-  const url = deriveUrl(key) ?? clean(process.env.SUPABASE_URL) ?? fromEngineEnv('SUPABASE_URL')
+  // Variables PROPIAS de Atlas. Nunca SUPABASE_SERVICE_KEY / SUPABASE_URL: en este
+  // proyecto de Vercel esas son las de MACD Studios, y con ellas Atlas escribía en la
+  // base de datos equivocada (atlas_applications no existe allí → los formularios fallaban).
+  const key = clean(process.env.ATLAS_SUPABASE_SERVICE_KEY) ?? fromEngineEnv('SUPABASE_SERVICE_KEY')
+  // La URL se deriva de la KEY resuelta para que ambas apunten SIEMPRE al mismo proyecto.
+  const url = deriveUrl(key) ?? clean(process.env.ATLAS_SUPABASE_URL) ?? fromEngineEnv('SUPABASE_URL')
   if (!key || !url) {
     throw new Error(
       `Atlas Supabase: faltan credenciales · key=${key ? 'len' + key.length : 'MISSING'} · url=${url ?? 'MISSING'}`,
