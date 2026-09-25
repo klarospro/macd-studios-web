@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 const SITE_URL = "https://macdestudios.com";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const routes = ["", "/curso", "/invest", "/atlas", "/legal/aviso-legal", "/legal/privacidad", "/legal/cookies"];
+  const routes = ["", "/curso", "/invest", "/legal/aviso-legal", "/legal/privacidad", "/legal/cookies"];
 
   return routes.map((route) => ({
     url: `${SITE_URL}${route}`,
