@@ -14,15 +14,20 @@ function contactLinks(telefono: string | null, email: string): string {
   return lines.join('\n')
 }
 
+// El aviso sale por n8n (workflow "Aviso auditoría web → Telegram"), que ya tiene la
+// credencial del bot y el chat de Moisés. La URL del webhook vive solo en Vercel porque
+// el repo es público y cualquiera con ella podría llenar el Telegram de spam.
 async function notifyMoises(text: string) {
-  const tgToken = process.env.TELEGRAM_BOT_TOKEN
-  const tgChat = process.env.TELEGRAM_CHAT_ID
-  if (!tgToken || !tgChat) return
-  await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+  const webhook = process.env.N8N_AUDITORIA_WEBHOOK
+  if (!webhook) {
+    console.error('offer-signup: falta N8N_AUDITORIA_WEBHOOK, no se avisó a Moisés')
+    return
+  }
+  await fetch(webhook, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: tgChat, text, disable_web_page_preview: true }),
-  }).catch(() => null)
+    body: JSON.stringify({ text }),
+  }).catch((e) => console.error('offer-signup: falló el aviso a n8n', e))
 }
 
 export async function POST(req: NextRequest) {
