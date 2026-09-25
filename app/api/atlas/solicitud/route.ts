@@ -68,8 +68,8 @@ export async function POST(req: NextRequest) {
     `🕒 ${submittedAt}`
 
   // 1) n8n: recibe todos los datos + el texto ya formateado para reenviar a Telegram.
-  if (process.env.N8N_WEBHOOK_URL) {
-    fetch(`${process.env.N8N_WEBHOOK_URL}/webhook/atlas-solicitud`, {
+  if (process.env.ATLAS_N8N_WEBHOOK_URL) {
+    await fetch(`${process.env.ATLAS_N8N_WEBHOOK_URL}/webhook/atlas-solicitud`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -95,8 +95,8 @@ export async function POST(req: NextRequest) {
   }
 
   // 2) Telegram directo (respaldo) si el entorno web tiene el bot configurado.
-  const tgToken = process.env.TELEGRAM_BOT_TOKEN
-  const tgChat = process.env.TELEGRAM_CHAT_ID
+  const tgToken = process.env.ATLAS_TELEGRAM_BOT_TOKEN
+  const tgChat = process.env.ATLAS_TELEGRAM_CHAT_ID
   if (tgToken && tgChat) {
     fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
       method: 'POST',
