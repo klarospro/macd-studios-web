@@ -53,8 +53,8 @@ export async function POST(req: NextRequest) {
     (notes ? `📝 ${notes}\n` : '') +
     `🕒 ${submittedAt}`
 
-  if (process.env.N8N_WEBHOOK_URL) {
-    fetch(`${process.env.N8N_WEBHOOK_URL}/webhook/atlas-retiro`, {
+  if (process.env.ATLAS_N8N_WEBHOOK_URL) {
+    await fetch(`${process.env.ATLAS_N8N_WEBHOOK_URL}/webhook/atlas-retiro`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -75,8 +75,8 @@ export async function POST(req: NextRequest) {
     }).catch(() => null)
   }
 
-  const tgToken = process.env.TELEGRAM_BOT_TOKEN
-  const tgChat = process.env.TELEGRAM_CHAT_ID
+  const tgToken = process.env.ATLAS_TELEGRAM_BOT_TOKEN
+  const tgChat = process.env.ATLAS_TELEGRAM_CHAT_ID
   if (tgToken && tgChat) {
     fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
       method: 'POST',
