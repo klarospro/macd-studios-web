@@ -35,14 +35,19 @@ export async function generateWeekPlan(_prev: AgentState, fd: FormData): Promise
   const focus = String(fd.get('focus') || '').trim()
 
   const [{ data: analysis }, { data: top }, { data: last }, { data: refs }] = await Promise.all([
-    supabase.from('social_analyses').select('summary').order('created_at', { ascending: false }).limit(1),
+    supabase.from('social_analyses').select('summary, platforms').order('created_at', { ascending: false }).limit(6),
     supabase.from('social_posts').select('platform, caption, views, likes, shares, saves').order('views', { ascending: false, nullsFirst: false }).limit(5),
     supabase.from('content_items').select('scheduled_for').not('scheduled_for', 'is', null).order('scheduled_for', { ascending: false }).limit(1),
     supabase.from('social_references').select('username, analysis').not('analysis', 'is', null).order('scanned_at', { ascending: false }).limit(3),
   ])
 
+  // El último análisis de perfil y el último benchmark viral son registros distintos.
+  const perfil = analysis?.find((a) => !a.platforms?.includes('benchmark'))
+  const bench = analysis?.find((a) => a.platforms?.includes('benchmark'))
+
   const context = [
-    analysis?.[0]?.summary ? `ÚLTIMO ANÁLISIS DEL PERFIL:\n${analysis[0].summary}` : 'Todavía no hay análisis del perfil.',
+    perfil ? `ÚLTIMO ANÁLISIS DEL PERFIL:\n${perfil.summary}` : 'Todavía no hay análisis del perfil.',
+    bench ? `ÚLTIMO BENCHMARK VIRAL (aplica su playbook y sus ganchos):\n${bench.summary}` : '',
     top?.length
       ? `MEJORES PUBLICACIONES REALES:\n${top.map((p) => `- ${p.platform}: ${p.views ?? '?'} vistas · "${(p.caption ?? '').slice(0, 120)}"`).join('\n')}`
       : '',
