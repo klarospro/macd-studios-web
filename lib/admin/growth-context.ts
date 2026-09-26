@@ -9,8 +9,10 @@ Diferencia que nadie puede copiar: "el sistema con el que yo mismo capto cliente
 Mensaje central: "Cada mensaje que contestas tarde es un cliente que se va con tu competencia."
 Nicho prioritario: inmobiliarias (España y LatAm); después negocios locales con muchos mensajes (clínicas, restaurantes).
 
-RITMO: 1 publicación al día (Instagram + TikTok), 4 reels y 3 carruseles por semana.
+RITMO: 1 publicación al día. Por semana: 3 reels GRABADOS por Moisés (material real, sin avatar ni video IA por ahora) y 4 carruseles automáticos.
 PILARES:
+- dato-curioso (carrusel): datos sorprendentes y verificables sobre IA, automatización y clientes; se guardan y se comparten
+- tutorial (carrusel): cómo conectar una API / WhatsApp / n8n / CRM paso a paso, para dueños de negocio
 - dolor: la venta que se pierde por contestar tarde (situaciones concretas, horas, portales)
 - demo-max: grabación real de Max contestando; la prueba vale más que cualquier promesa
 - caso-real: proyectos reales (vista-inmobiliaria, Vida Nueva Reus); nunca clientes ni cifras inventadas

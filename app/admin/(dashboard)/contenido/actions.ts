@@ -10,7 +10,7 @@ import { publishItem } from '@/lib/social/publish'
 import type { AgentState } from '../agents/actions'
 import type { ContentItem, ContentStatus } from '@/lib/social/types'
 
-const PILLARS = ['dolor', 'demo-max', 'caso-real', 'autoridad', 'oferta-auditoria', 'detras-de-camaras']
+const PILLARS = ['dato-curioso', 'tutorial', 'dolor', 'demo-max', 'caso-real', 'autoridad', 'oferta-auditoria', 'detras-de-camaras']
 
 type PlannedItem = {
   format: 'reel' | 'carrusel'
@@ -64,11 +64,13 @@ ${MACD_GROWTH_CONTEXT}
 
 Eres el estratega y guionista de contenido de MACD Studios. Moisés publica 1 pieza al día en Instagram y TikTok.
 No menciones precios. Usa como "pillar" exactamente uno de: ${PILLARS.join(', ')}.
-Reel = 20-35 s, texto en pantalla, gancho en el primer segundo; "script" son 4-6 frases cortas (una por línea) que aparecerán en pantalla.
-Cada reel lleva "visual_prompt": en INGLÉS, 1-2 frases describiendo un plano de fondo cinematográfico de 5 s que refuerce el mensaje (ej. "a smartphone lighting up on a dark desk at night with unread messages, real estate office"). Sin texto en pantalla, sin logos, sin personas reconocibles.
-Carrusel = 5-7 diapositivas; "slides" = [{title, body}] con título corto (máx 8 palabras) y body opcional (máx 25 palabras).
-Alterna reel y carrusel (4 reels y 3 carruseles). Captions en español, cercanos, máx 600 caracteres. hashtags: 5-8, relevantes.
-Responde SOLO con un array JSON de 7 objetos con las claves: format, pillar, title, hook, script y visual_prompt (solo reel), slides (solo carrusel), caption, cta, hashtags. Sin texto antes ni después.`,
+REEL = lo GRABA Moisés a cámara (material real, sin IA). "script" es su guion: 5-8 líneas cortas para decir en 20-40 s, la primera es el gancho. Añade al final una línea "[Grabación: …]" con el plano, el lugar y lo que se ve en pantalla (ej. "[Grabación: selfie en el escritorio, luego pantalla del móvil con Max contestando]"). Nada de producción cara: móvil y buena luz.
+CARRUSEL = se genera solo con la plantilla de marca. Prioriza contenido que se guarda y se comparte:
+- dato-curioso: datos sorprendentes y VERIFICABLES sobre IA, automatización o hábitos de compra (si no estás seguro de un dato, no lo uses; nunca inventes cifras).
+- tutorial: "cómo conectar X con Y" paso a paso (APIs, WhatsApp, Telegram, n8n, CRM), explicado para dueños de negocio, 1 paso por diapositiva.
+"slides" = [{title, body}] con título corto (máx 8 palabras) y body opcional (máx 25 palabras); 6-8 diapositivas, la última pide guardar/escribir.
+Reparto semanal: 3 reels (pilares dolor, demo-max, detras-de-camaras o autoridad) y 4 carruseles (al menos 2 dato-curioso o tutorial). Captions en español, cercanos, máx 600 caracteres. hashtags: 5-8, relevantes.
+Responde SOLO con un array JSON de 7 objetos con las claves: format, pillar, title, hook, script (solo reel), slides (solo carrusel), caption, cta, hashtags. Sin texto antes ni después.`,
         },
         { role: 'user', content: context },
       ],
