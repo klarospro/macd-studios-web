@@ -194,7 +194,7 @@ export default function Trabajos() {
               <p className="text-gray-300 mt-2 text-lg">Gestion de capital automatizada, 24/7, multi-mercado</p>
             </div>
             <motion.a
-              href="https://atlas-capital-ai.vercel.app/atlas"
+              href="https://atlas-capital-web.vercel.app"
               target="_blank"
               rel="noopener noreferrer"
               whileHover={{ scale: 1.04 }}
