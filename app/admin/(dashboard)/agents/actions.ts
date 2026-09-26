@@ -26,7 +26,7 @@ export async function runMarketingAgent(_prev: AgentState, formData: FormData): 
         role: 'user',
         content: brief || 'Dame 3 ideas de contenido para esta semana, tema libre según lo que mejor venda.',
       },
-    ])
+    ], 'claude-sonnet-5', 1200, 'agente-marketing')
     return { output }
   } catch (e) {
     return fail(e)
@@ -46,7 +46,7 @@ export async function runNewProjectAgent(_prev: AgentState, formData: FormData):
         content: `${MACD_BUSINESS_CONTEXT}\n\nEres el agente de nuevos proyectos de MACD Studios. Dado lo que pide un cliente potencial, devuelve en texto plano (sin markdown): 1) qué plan/producto encaja mejor y por qué, 2) un borrador de 2-3 frases para el campo "Servicio" de una propuesta, 3) una nota corta de alcance/riesgo a confirmar antes de cotizar en firme.`,
       },
       { role: 'user', content: description },
-    ])
+    ], 'claude-sonnet-5', 1200, 'agente-nuevos-proyectos')
     return { output }
   } catch (e) {
     return fail(e)
@@ -76,7 +76,7 @@ export async function runUpdatesAgent(_prev: AgentState, _formData: FormData): P
           'Eres el agente de actualizaciones de MACD Studios. Con la lista de proyectos y su último commit real, escribe un resumen ejecutivo de 5-8 líneas: qué se movió esta semana, qué proyecto lleva más tiempo sin actividad (posible foco de atención), sin inventar nada que no esté en los datos.',
       },
       { role: 'user', content: summary },
-    ])
+    ], 'claude-sonnet-5', 1200, 'agente-actualizaciones')
     return { output }
   } catch (e) {
     return fail(e)
@@ -97,7 +97,7 @@ export async function runProductionAgent(_prev: AgentState, formData: FormData):
         content: `${MACD_BUSINESS_CONTEXT}\n\nEres el agente de producción de MACD Studios. Dado un cliente y el plan que compró, devuelve un checklist numerado (texto plano) de los pasos concretos para entregarlo, en orden, basado EXACTAMENTE en lo que incluye ese plan — sin agregar nada que el plan no tenga.`,
       },
       { role: 'user', content: `Cliente: ${clientName}\nPlan comprado: ${plan}` },
-    ])
+    ], 'claude-sonnet-5', 1200, 'agente-produccion')
     return { output }
   } catch (e) {
     return fail(e)
@@ -133,7 +133,7 @@ export async function runCeoAgent(_prev: AgentState, _formData: FormData): Promi
           'Eres el agente de briefing ejecutivo de MACD Studios (no tomas decisiones por tu cuenta, sintetizas). Con estos datos reales, escribe 4-6 líneas: qué necesita atención de Moisés esta semana (cobros, propuestas estancadas, etc.). Directo, sin relleno. No inventes cifras que no te di.',
       },
       { role: 'user', content: dataSummary },
-    ])
+    ], 'claude-sonnet-5', 1200, 'agente-ceo')
     return { output }
   } catch (e) {
     return fail(e)

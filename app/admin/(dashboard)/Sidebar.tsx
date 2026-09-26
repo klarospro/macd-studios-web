@@ -16,6 +16,7 @@ import {
   Activity,
   Briefcase,
   Bot,
+  Gauge,
   Clapperboard,
   CalendarCheck,
   Share2,
@@ -37,6 +38,7 @@ const NAV = [
   { href: '/admin/contenido', label: 'Contenido', icon: Clapperboard },
   { href: '/admin/redes', label: 'Redes', icon: Share2 },
   { href: '/admin/agents', label: 'Agentes', icon: Bot },
+  { href: '/admin/consumo', label: 'Consumo IA', icon: Gauge },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ]
 
