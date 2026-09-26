@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireSession } from '@/lib/admin/dal'
-import { callAnthropic } from '@/lib/admin/anthropic'
+import { callAnthropic, callAnthropicWithWebSearch } from '@/lib/admin/anthropic'
 import { MACD_BUSINESS_CONTEXT } from '@/lib/admin/business-context'
 import { MACD_GROWTH_CONTEXT } from '@/lib/admin/growth-context'
 import { discoveryConfigured, scanReference, summarizeScan } from '@/lib/social/references'
@@ -161,4 +161,120 @@ export async function deleteReference(formData: FormData) {
   const { supabase } = await requireSession()
   await supabase.from('social_references').delete().eq('id', String(formData.get('id')))
   revalidatePath('/admin/redes')
+}
+
+type BenchmarkCreator = {
+  handle: string
+  platform: string
+  followers?: number | null
+  source_url?: string
+  why?: string
+  patterns?: string[]
+  hooks?: string[]
+}
+
+// Agente Benchmark: investiga en la web a los creadores que más crecen en el nicho, extrae sus
+// patrones y los compara con las métricas reales de MACD. Los creadores quedan guardados como
+// referencias → el estratega los usa al generar el plan semanal.
+export async function runBenchmark(_prev: AgentState, fd: FormData): Promise<AgentState> {
+  const { supabase } = await requireSession()
+  const focus = String(fd.get('focus') || '').trim()
+
+  const [{ data: accounts }, { data: posts }] = await Promise.all([
+    supabase.from('social_accounts').select('*'),
+    supabase.from('social_posts').select('*').order('posted_at', { ascending: false }).limit(40),
+  ])
+  const ours = (accounts as SocialAccount[] | null)?.length
+    ? [
+        ...(accounts as SocialAccount[]).map(
+          (a) => `${a.platform}: @${a.username} · seguidores=${a.followers ?? '?'} · publicaciones=${a.posts_count ?? '?'}`
+        ),
+        'Publicaciones recientes:',
+        ...((posts ?? []) as SocialPost[]).slice(0, 15).map(postLine),
+      ].join('\n')
+    : 'Todavía no hay cuentas conectadas: compara solo contra las buenas prácticas y di qué datos faltan.'
+
+  let raw: string
+  try {
+    raw = await callAnthropicWithWebSearch(
+      [
+        {
+          role: 'system',
+          content: `${MACD_BUSINESS_CONTEXT}
+
+${MACD_GROWTH_CONTEXT}
+
+Eres el Agente Benchmark de MACD Studios. Usa la búsqueda web para investigar creadores de contenido de alto nivel que estén creciendo AHORA (último año) en Instagram y TikTok en estos nichos: automatización/IA para negocios, agencias de marketing, y marketing para inmobiliarias. Prioriza cuentas en español (España y LatAm) y añade 1-2 referentes globales si aportan.
+Para cada creador (5-7): handle exacto, plataforma, seguidores SOLO si lo encuentras en una fuente (si no, null), URL de la fuente, por qué crece, patrones replicables (formato, duración, ritmo de publicación, estructura, retención, CTA) y 2-3 fórmulas de gancho convertidas en plantilla genérica.
+Luego compara con las métricas reales de MACD que te paso: brechas concretas y qué cambiar YA.
+Reglas: no inventes cifras ni cuentas; si no puedes verificar algo, dilo. Nada garantiza hacerse viral: habla de aumentar la probabilidad (retención, compartidos, guardados, comentarios). Copiar estructuras, nunca textos ni vídeos ajenos.
+Al FINAL de tu respuesta escribe el resultado entre <json> y </json> con esta forma exacta:
+{"creators":[{"handle":"","platform":"instagram|tiktok","followers":null,"source_url":"","why":"","patterns":[""],"hooks":[""]}],"comparison":"texto: brechas de MACD vs ellos","playbook":["10 reglas concretas para aumentar alcance"],"hooks":["10 ganchos listos para MACD"],"tests":["3 experimentos para esta semana, con qué métrica medirlos"]}`,
+        },
+        {
+          role: 'user',
+          content: `${focus ? `Foco de esta investigación: ${focus}\n\n` : ''}MÉTRICAS REALES DE MACD:\n${ours}`,
+        },
+      ],
+      { maxSearches: 10 }
+    )
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Error con la IA' }
+  }
+
+  const m = raw.match(/<json>([\s\S]*)<\/json>/)
+  let result: {
+    creators?: BenchmarkCreator[]
+    comparison?: string
+    playbook?: string[]
+    hooks?: string[]
+    tests?: string[]
+  }
+  try {
+    result = JSON.parse(m ? m[1] : raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1))
+  } catch {
+    return { error: 'El agente investigó pero no devolvió un resultado legible. Vuelve a intentarlo.' }
+  }
+
+  const creators = (result.creators ?? []).filter((c) => c.handle)
+  for (const c of creators) {
+    const username = c.handle.replace(/^@/, '').trim().toLowerCase()
+    await supabase.from('social_references').upsert(
+      {
+        username,
+        niche: `${c.platform} · benchmark`,
+        followers: typeof c.followers === 'number' ? c.followers : null,
+        analysis: [
+          c.why && `POR QUÉ CRECE: ${c.why}`,
+          c.patterns?.length && `PATRONES:\n- ${c.patterns.join('\n- ')}`,
+          c.hooks?.length && `GANCHOS (plantilla):\n- ${c.hooks.join('\n- ')}`,
+          c.source_url && `Fuente: ${c.source_url}`,
+        ]
+          .filter(Boolean)
+          .join('\n\n'),
+        scanned_at: new Date().toISOString(),
+        last_error: null,
+      },
+      { onConflict: 'username' }
+    )
+  }
+
+  const summary = [
+    'BENCHMARK VIRAL',
+    `Referentes: ${creators.map((c) => `@${c.handle.replace(/^@/, '')} (${c.platform})`).join(', ') || '—'}`,
+    result.comparison && `\nTU CUENTA VS ELLOS:\n${result.comparison}`,
+    result.playbook?.length && `\nPLAYBOOK:\n${result.playbook.map((r, i) => `${i + 1}. ${r}`).join('\n')}`,
+    result.hooks?.length && `\nGANCHOS PARA MACD:\n${result.hooks.map((h) => `- ${h}`).join('\n')}`,
+    result.tests?.length && `\nEXPERIMENTOS DE ESTA SEMANA:\n${result.tests.map((t) => `- ${t}`).join('\n')}`,
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  await supabase.from('social_analyses').insert({
+    platforms: ['benchmark'],
+    summary,
+    data_snapshot: result,
+  })
+  revalidatePath('/admin/redes')
+  return { output: summary }
 }

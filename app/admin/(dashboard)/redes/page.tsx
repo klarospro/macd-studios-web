@@ -2,13 +2,15 @@ import { requireSession } from '@/lib/admin/dal'
 import { PageHeader, Card, StatCard, Table, Th, Td, EmptyState, Badge, Button } from '@/components/admin/ui'
 import AgentPanel from '../agents/AgentPanel'
 import SyncButton from './SyncButton'
-import { analyzeProfile, deleteReference, disconnect, scanReferenceAccount } from './actions'
+import { analyzeProfile, deleteReference, disconnect, runBenchmark, scanReferenceAccount } from './actions'
 import { discoveryConfigured } from '@/lib/social/references'
 import { igConfigured } from '@/lib/social/instagram'
 import { ttConfigured } from '@/lib/social/tiktok'
 import type { SocialAccount, SocialPost } from '@/lib/social/types'
 
 export const revalidate = 0
+// El benchmark investiga en la web (1-3 min).
+export const maxDuration = 300
 
 const n = (v: number | null | undefined) => (v == null ? '—' : v.toLocaleString('es-ES'))
 
@@ -160,6 +162,13 @@ export default async function RedesPage({ searchParams }: { searchParams: Promis
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
+        <AgentPanel
+          title="🚀 Benchmark viral"
+          description="Investiga en la web a los creadores que más crecen en tu nicho, los compara con tus números y te da playbook, ganchos y 3 experimentos. Tarda 1-3 min."
+          fields={[{ name: 'focus', placeholder: 'Foco opcional — ej: inmobiliarias en España, agentes de IA en TikTok' }]}
+          action={runBenchmark}
+          buttonLabel="Investigar"
+        />
         <AgentPanel
           title="🔍 Analizar mi perfil"
           description="Diagnóstico con tus números reales, bio nueva, patrones de lo que funciona y plan de 14 días."
