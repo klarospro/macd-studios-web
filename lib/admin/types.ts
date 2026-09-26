@@ -208,5 +208,7 @@ export interface BotLead {
   presupuesto: string | null
   estado: string
   canal: string
+  utm_campaign?: string | null
+  utm_content?: string | null
   created_at: string
 }

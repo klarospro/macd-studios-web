@@ -85,7 +85,15 @@ export default async function ProspectsPage() {
                 <Td>
                   <Badge tone={l.estado === 'nuevo' ? 'gold' : 'default'}>{l.estado}</Badge>
                 </Td>
-                <Td>{l.canal}</Td>
+                <Td>
+                  {l.canal}
+                  {l.utm_campaign && (
+                    <div className="text-[11px] text-[#D4AF37]">
+                      📣 {l.utm_campaign}
+                      {l.utm_content ? ` · ${l.utm_content}` : ''}
+                    </div>
+                  )}
+                </Td>
                 <Td className="text-zinc-500 text-xs">{new Date(l.created_at).toLocaleString('es-ES')}</Td>
               </tr>
             ))}
