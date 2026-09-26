@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { SearchCheck } from "lucide-react";
 import Honeypot from "@/components/Honeypot";
 import { HONEYPOT_FIELD } from "@/lib/antiSpam";
+import { getAttribution, getConsent, getMetaCookies } from "@/lib/tracking";
+import { trackLead } from "@/components/MetaPixel";
 
 const SECTORES = ["Inmobiliaria", "Restaurante", "Clínica / salud", "Iglesia / organización", "Otro"];
 
@@ -38,12 +40,26 @@ export default function OfertasSignup() {
 
     const honeypot = new FormData(formRef.current ?? undefined).get(HONEYPOT_FIELD);
 
+    // Mismo event_id en navegador (Pixel) y servidor (Conversions API) → Meta no duplica el lead.
+    const eventId = crypto.randomUUID();
+    const consent = getConsent() === "accepted";
+
     const res = await fetch("/api/offer-signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre, email, telefono, sector, contacto, [HONEYPOT_FIELD]: honeypot }),
+      body: JSON.stringify({
+        nombre,
+        email,
+        telefono,
+        sector,
+        contacto,
+        [HONEYPOT_FIELD]: honeypot,
+        attribution: getAttribution(),
+        tracking: consent ? { consent: true, eventId, ...getMetaCookies() } : { consent: false },
+      }),
     });
 
+    if (res.ok) trackLead(eventId);
     setStatus(res.ok ? "done" : "error");
   }
 

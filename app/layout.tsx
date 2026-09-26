@@ -2,6 +2,7 @@
 import { Playfair_Display, Inter, JetBrains_Mono, Fraunces } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import CookieBanner from "@/components/CookieBanner";
+import MetaPixel from "@/components/MetaPixel";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import TelegramButton from "@/components/TelegramButton";
 import "./globals.css";
@@ -96,6 +97,7 @@ export default function RootLayout({
         />
         {children}
         <CookieBanner />
+        <MetaPixel />
         <WhatsAppButton />
         <TelegramButton />
         <Analytics />

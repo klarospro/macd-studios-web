@@ -33,14 +33,26 @@ export default function CookiesPage() {
                 <strong>Funcionales:</strong> necesarias para recordar tu eleccion sobre esta
                 misma politica de cookies.
               </li>
+              <li>
+                <strong>Publicidad (Meta Pixel), solo si las aceptas:</strong> nos permiten medir
+                si nuestros anuncios en Instagram y Facebook generan solicitudes (por ejemplo, la
+                auditoria gratis) y mostrar anuncios a personas con intereses parecidos. Las
+                instala Meta Platforms Ireland Ltd. Tambien guardamos, con tu consentimiento, la
+                campana por la que llegaste (parametros UTM) durante 30 dias.
+              </li>
             </ul>
-            <p className="mt-2">No utilizamos cookies de publicidad de terceros.</p>
+            <p className="mt-2">
+              Las cookies de publicidad no se activan hasta que pulsas &quot;Aceptar&quot; en el
+              aviso de cookies. Si pulsas &quot;Rechazar&quot;, no se cargan.
+            </p>
           </section>
 
           <section>
             <h2 className="text-xl font-bold text-white mb-2">3. Como gestionar las cookies</h2>
             <p>
-              Puedes eliminar o bloquear las cookies desde la configuracion de tu navegador. Ten
+              Puedes cambiar tu eleccion en cualquier momento borrando los datos de este sitio en
+              tu navegador (volvera a aparecer el aviso). Tambien puedes eliminar o bloquear las
+              cookies desde la configuracion de tu navegador. Ten
               en cuenta que bloquear cookies funcionales puede afectar al funcionamiento normal
               del sitio.
             </p>
