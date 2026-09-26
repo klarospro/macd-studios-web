@@ -41,6 +41,21 @@ export default async function DashboardPage() {
       .order('date'),
   ])
 
+  // Crecimiento: leads del CRM (Max + web), seguidores y contenido programado.
+  const since = new Date()
+  since.setDate(since.getDate() - 30)
+  const since30 = since.toISOString()
+  const [leads30, socialAccounts, scheduledContent] = await Promise.all([
+    supabase.from('bot_leads').select('id', { count: 'exact', head: true }).gte('created_at', since30),
+    supabase.from('social_accounts').select('platform, followers'),
+    supabase
+      .from('content_items')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'aprobado')
+      .gte('scheduled_for', new Date().toISOString().slice(0, 10)),
+  ])
+  const followers = (socialAccounts.data ?? []).reduce((s, a) => s + (a.followers ?? 0), 0)
+
   const sum = (rows: { type: string; usd_amount: number }[] | null | undefined, type: string) =>
     (rows ?? []).filter((r) => r.type === type).reduce((s, r) => s + r.usd_amount, 0)
 
@@ -89,6 +104,27 @@ export default async function DashboardPage() {
               : undefined
           }
         />
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <Link href="/admin/prospects">
+          <StatCard label="Leads (30 días)" value={leads30.count ?? 0} hint="Max + web → CRM" tone="gold" />
+        </Link>
+        <Link href="/admin/redes">
+          <StatCard
+            label="Seguidores"
+            value={socialAccounts.data?.length ? followers.toLocaleString('es-ES') : '—'}
+            hint={socialAccounts.data?.length ? socialAccounts.data.map((a) => a.platform).join(' + ') : 'conecta Instagram / TikTok'}
+          />
+        </Link>
+        <Link href="/admin/contenido">
+          <StatCard
+            label="Piezas programadas"
+            value={scheduledContent.count ?? 0}
+            hint="objetivo: 7 días por delante"
+            tone={(scheduledContent.count ?? 0) >= 3 ? 'positive' : 'negative'}
+          />
+        </Link>
       </div>
 
       <Card>
