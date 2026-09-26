@@ -1,0 +1,65 @@
+# Migraciones de Supabase automáticas.
+# - En cada PR que toque supabase/migrations: freno de seguridad + simulación (qué se aplicaría).
+# - Al hacer merge a main: se aplican solas las migraciones nuevas (el historial está en
+#   supabase_migrations.schema_migrations, así que nunca se repite una ya aplicada).
+#
+# Secretos del repo (Settings → Secrets and variables → Actions), se ponen UNA vez:
+#   SUPABASE_ACCESS_TOKEN  → supabase.com/dashboard/account/tokens
+#   SUPABASE_DB_PASSWORD   → Project Settings → Database → contraseña de la base de datos
+name: Migraciones Supabase
+
+on:
+  pull_request:
+    paths: ["supabase/migrations/**"]
+  push:
+    branches: [main]
+    paths: ["supabase/migrations/**"]
+
+concurrency:
+  group: supabase-migrations
+  cancel-in-progress: false
+
+env:
+  PROJECT_REF: qudeloovtazkkjmyehsx # Supabase del panel (MACD). ATLAS y clientes van aparte.
+
+jobs:
+  migrar:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Freno: una migración que borra (DROP/TRUNCATE/DELETE) no pasa salvo que lleve la
+      # línea "-- destructiva: backup hecho" (regla: backup antes de tocar la base de datos).
+      - name: Freno de migraciones destructivas
+        run: |
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          files=$(git diff --name-only --diff-filter=AM "$base" HEAD -- supabase/migrations | grep '\.sql$' || true)
+          fail=0
+          for f in $files; do
+            if grep -qiE '\b(drop[[:space:]]+(table|column|schema|type)|truncate|delete[[:space:]]+from|alter[[:space:]]+table[^;]*drop)\b' "$f" \
+               && ! grep -qi -- '-- destructiva: backup hecho' "$f"; then
+              echo "::error file=$f::Migración destructiva sin '-- destructiva: backup hecho'. Haz backup y añade esa línea."
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Conectar con el proyecto
+        run: supabase link --project-ref "$PROJECT_REF"
+
+      - name: Simulación (PR)
+        if: github.event_name == 'pull_request'
+        run: supabase db push --dry-run
+
+      - name: Aplicar migraciones (main)
+        if: github.event_name == 'push'
+        run: supabase db push --yes
