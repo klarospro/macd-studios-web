@@ -119,11 +119,11 @@ Vercel cuestan $0. **La recarga de saldo la haces tú, porque es un tema de fina
 1. **Backup de Supabase** y ejecutar `supabase/migrations/0003_redes_contenido.sql` en el SQL Editor.
 2. **Meta:** crear una app en developers.facebook.com → producto *Instagram* → *API setup with
    Instagram login*. Añadir la URL de redirección
-   `https://macdestudios.com/api/social/instagram/callback` y tu cuenta de IG como tester.
+   `https://www.macdestudios.com/api/social/instagram/callback` y tu cuenta de IG como tester.
    Tu cuenta tiene que ser **profesional** (Business o Creator).
    → Vercel: `INSTAGRAM_APP_ID` y `INSTAGRAM_APP_SECRET`.
 3. **TikTok:** crear una app en developers.tiktok.com con *Login Kit* y *Content Posting API*
-   (Direct Post). Añadir la URL de redirección `https://macdestudios.com/api/social/tiktok/callback`.
+   (Direct Post). Añadir la URL de redirección `https://www.macdestudios.com/api/social/tiktok/callback`.
    → Vercel: `TIKTOK_CLIENT_KEY` y `TIKTOK_CLIENT_SECRET`.
    ⚠️ **Hasta que TikTok apruebe la app (auditoría), lo que se publica por API sale en privado.**
    Se hace público desde la app con un toque. Con la auditoría aprobada, poner `TIKTOK_AUDITED=true`.
