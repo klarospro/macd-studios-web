@@ -4,12 +4,23 @@ import { useRef, useTransition } from 'react'
 import { createClient } from '@supabase/supabase-js'
 import { toast } from 'sonner'
 import { Button } from '@/components/admin/ui'
-import { attachMedia, createUploadUrl } from './actions'
+import { attachCover, attachMedia, createUploadUrl } from './actions'
 
 // Sube el archivo del navegador directo a Supabase Storage con una URL firmada.
-export default function MediaUpload({ itemId, format }: { itemId: string; format: 'reel' | 'carrusel' }) {
+// mode="media": el video del reel o las imágenes finales del carrusel.
+// mode="cover": la portada del carrusel creada en Gemini (luego el renderer la integra).
+export default function MediaUpload({
+  itemId,
+  format,
+  mode = 'media',
+}: {
+  itemId: string
+  format: 'reel' | 'carrusel'
+  mode?: 'media' | 'cover'
+}) {
   const input = useRef<HTMLInputElement>(null)
   const [pending, start] = useTransition()
+  const cover = mode === 'cover'
 
   const upload = (files: FileList) =>
     start(async () => {
@@ -22,8 +33,9 @@ export default function MediaUpload({ itemId, format }: { itemId: string; format
           if (error) throw error
           urls.push(publicUrl)
         }
-        await attachMedia(itemId, urls)
-        toast.success(`${urls.length} archivo(s) subido(s)`)
+        if (cover) await attachCover(itemId, urls[0])
+        else await attachMedia(itemId, urls)
+        toast.success(cover ? 'Portada subida: el carrusel se vuelve a generar' : `${urls.length} archivo(s) subido(s)`)
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'No se pudo subir')
       }
@@ -35,12 +47,12 @@ export default function MediaUpload({ itemId, format }: { itemId: string; format
         ref={input}
         type="file"
         hidden
-        multiple={format === 'carrusel'}
-        accept={format === 'reel' ? 'video/mp4' : 'image/jpeg,image/png'}
+        multiple={!cover && format === 'carrusel'}
+        accept={!cover && format === 'reel' ? 'video/mp4,video/quicktime' : 'image/jpeg,image/png,image/webp'}
         onChange={(e) => e.target.files?.length && upload(e.target.files)}
       />
       <Button type="button" variant="secondary" disabled={pending} onClick={() => input.current?.click()}>
-        {pending ? 'Subiendo…' : format === 'reel' ? 'Subir video (MP4)' : 'Subir imágenes (JPG)'}
+        {pending ? 'Subiendo…' : cover ? 'Subir portada (Gemini)' : format === 'reel' ? 'Subir mi video' : 'Subir imágenes'}
       </Button>
     </>
   )

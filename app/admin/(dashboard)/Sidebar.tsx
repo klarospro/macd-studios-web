@@ -17,12 +17,14 @@ import {
   Briefcase,
   Bot,
   Clapperboard,
+  CalendarCheck,
   Share2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+  { href: '/admin/hoy', label: 'Hoy', icon: CalendarCheck },
   { href: '/admin/clients', label: 'Clients', icon: Users },
   { href: '/admin/invoices', label: 'Invoices', icon: FileText },
   { href: '/admin/transactions', label: 'Transactions', icon: Receipt },

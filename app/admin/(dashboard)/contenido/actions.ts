@@ -8,21 +8,25 @@ import { MACD_GROWTH_CONTEXT } from '@/lib/admin/growth-context'
 import { supabase as serviceDb } from '@/lib/supabase'
 import { publishItem } from '@/lib/social/publish'
 import type { AgentState } from '../agents/actions'
-import type { ContentItem, ContentStatus } from '@/lib/social/types'
+import type { ContentItem, ContentStatus, Slide, Story } from '@/lib/social/types'
 
 const PILLARS = ['dato-curioso', 'tutorial', 'dolor', 'demo-max', 'caso-real', 'autoridad', 'oferta-auditoria', 'detras-de-camaras']
+const CATEGORIES = ['problema', 'solucion', 'trabajar-conmigo', 'personal']
 
 type PlannedItem = {
   format: 'reel' | 'carrusel'
+  category: string
   pillar: string
   title: string
   hook: string
   script?: string
   visual_prompt?: string
-  slides?: { title: string; body?: string }[]
+  slides?: Slide[]
   caption: string
   cta: string
+  cta_keyword?: string
   hashtags: string
+  stories?: Story[]
 }
 
 // Agente estratega + guionista: 7 piezas, una por día, desde mañana.
@@ -62,20 +66,36 @@ export async function generateWeekPlan(_prev: AgentState, fd: FormData): Promise
 
 ${MACD_GROWTH_CONTEXT}
 
-Eres el estratega y guionista de contenido de MACD Studios. Moisés publica 1 pieza al día en Instagram y TikTok.
-No menciones precios. Usa como "pillar" exactamente uno de: ${PILLARS.join(', ')}.
-REEL = lo GRABA Moisés a cámara (material real, sin IA). "script" es su guion: 5-8 líneas cortas para decir en 20-40 s, la primera es el gancho. Añade al final una línea "[Grabación: …]" con el plano, el lugar y lo que se ve en pantalla (ej. "[Grabación: selfie en el escritorio, luego pantalla del móvil con Max contestando]"). Nada de producción cara: móvil y buena luz.
-CARRUSEL = se genera solo con la plantilla de marca. Prioriza contenido que se guarda y se comparte:
-- dato-curioso: datos sorprendentes y VERIFICABLES sobre IA, automatización o hábitos de compra (si no estás seguro de un dato, no lo uses; nunca inventes cifras).
-- tutorial: "cómo conectar X con Y" paso a paso (APIs, WhatsApp, Telegram, n8n, CRM), explicado para dueños de negocio, 1 paso por diapositiva.
-"slides" = [{title, body}] con título corto (máx 8 palabras) y body opcional (máx 25 palabras); 6-8 diapositivas, la última pide guardar/escribir.
-Reparto semanal: 3 reels (pilares dolor, demo-max, detras-de-camaras o autoridad) y 4 carruseles (al menos 2 dato-curioso o tutorial). Captions en español, cercanos, máx 600 caracteres. hashtags: 5-8, relevantes.
-Responde SOLO con un array JSON de 7 objetos con las claves: format, pillar, title, hook, script (solo reel), slides (solo carrusel), caption, cta, hashtags. Sin texto antes ni después.`,
+Eres el estratega y guionista de contenido de MACD Studios. Moisés publica 1 pieza al día (Instagram + TikTok) y 3-5 stories diarias.
+No menciones precios.
+
+REPARTO (sostenible > perfecto): de las 7 piezas, 3-4 "problema" (el dolor exacto del dueño de inmobiliaria o negocio local), 2 "solucion" (cómo se resuelve, mostrando el sistema real), 1 "trabajar-conmigo" o "personal". Usa "category" = uno de: ${CATEGORIES.join(', ')}. "pillar" = uno de: ${PILLARS.join(', ')}. No repitas el mismo pilar dos días seguidos.
+
+REEL = lo GRABA Moisés a cámara (móvil, material real). "script" en líneas con estas etiquetas, en este orden:
+GANCHO: rompe el scroll en 1 frase (directa, incómoda, concreta).
+PROBLEMA: la causa real con un ejemplo del día a día (nada de frases vacías).
+SOLUCIÓN: el enfoque que cambia el resultado (no una lista de tips).
+PRUEBA: SOLO algo real y verificable: Max funcionando en vivo, el propio sistema de MACD, proyectos reales (demo vista-inmobiliaria, Vida Nueva Reus). Si no hay prueba real para ese tema, escribe "PRUEBA: te lo enseño en vivo" — NUNCA inventes cifras ni clientes.
+CTA: "Comenta <PALABRA> y te mando <entregable>" (entregable que sí podemos dar: auditoría gratis, enlace para probar a Max, el mapa/guía del carrusel).
+[Grabación: plano, lugar y qué se ve en pantalla]
+Duración 30-45 s, lenguaje simple, un solo concepto por guion.
+
+CARRUSEL = se genera solo con la plantilla de marca (Moisés solo crea la portada en Gemini). "slides" = 6-8 objetos. Tipos:
+- {"title": "..."} portada (índice 0) con "image_prompt": prompt EN INGLÉS para Gemini, ilustración 4:5 SIN TEXTO, estilo "dark cinematic 3D render, black background, gold accents, premium, minimal" que represente el tema (ej. "a glowing smartphone floating with golden chat bubbles and a small robot assistant, isometric 3D").
+- {"kind":"mindmap","title":"...","center":"...","branches":[{"label":"...","items":["...","..."]}]} 4-6 ramas, máx 2-3 items cortos (≤3 palabras).
+- {"kind":"steps","title":"...","steps":[{"label":"...","detail":"..."}]} 3-5 pasos.
+- {"title":"...","body":"..."} texto (título ≤8 palabras, body ≤25).
+Los carruseles de "tutorial" o "dato-curioso" deben incluir al menos un mindmap o steps. La última diapositiva repite el CTA con la palabra clave. Datos solo verificables.
+
+"cta" = frase completa del CTA; "cta_keyword" = la PALABRA en mayúsculas (una sola, sin tildes).
+"stories" = 3-5 historias para ese día que calientan y generan respuestas: [{"tipo":"hand-raiser|valor|detras|encuesta|cta","texto":"...","sticker":"encuesta/pregunta/cuenta atrás (opcional)"}]. Al menos 1 hand-raiser (pregunta que invita a responder por DM, ej. "¿Cuántos mensajes contestas tarde a la semana? Respóndeme con un número").
+Reparto de formatos: 3 reels y 4 carruseles. Captions en español, cercanos, máx 600 caracteres, terminan con el CTA. hashtags: 5-8.
+Responde SOLO con un array JSON de 7 objetos con las claves: format, category, pillar, title, hook, script (reel), slides (carrusel), caption, cta, cta_keyword, hashtags, stories. Sin texto antes ni después.`,
         },
         { role: 'user', content: context },
       ],
       'claude-sonnet-5',
-      6000
+      12000
     )
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Error con la IA' }
@@ -102,6 +122,9 @@ Responde SOLO con un array JSON de 7 objetos con las claves: format, pillar, tit
       format: it.format === 'carrusel' ? 'carrusel' : 'reel',
       platforms: it.format === 'carrusel' ? ['instagram'] : ['instagram', 'tiktok'],
       pillar: it.pillar,
+      category: CATEGORIES.includes(it.category) ? it.category : null,
+      cta_keyword: it.cta_keyword?.toUpperCase() ?? null,
+      stories: it.stories ?? null,
       title: it.title,
       hook: it.hook,
       script: it.format === 'reel' ? it.script ?? null : null,
@@ -136,6 +159,7 @@ export async function advance(formData: FormData) {
   if (!to) return
   await supabase.from('content_items').update({ status: to, updated_at: new Date().toISOString() }).eq('id', id)
   revalidatePath('/admin/contenido')
+  revalidatePath('/admin/hoy')
 }
 
 export async function setStatus(formData: FormData) {
@@ -145,6 +169,7 @@ export async function setStatus(formData: FormData) {
   if (!['guion', 'produccion', 'revision', 'descartado'].includes(status)) return
   await supabase.from('content_items').update({ status, updated_at: new Date().toISOString() }).eq('id', id)
   revalidatePath('/admin/contenido')
+  revalidatePath('/admin/hoy')
 }
 
 export async function saveItem(formData: FormData) {
@@ -168,12 +193,21 @@ export async function saveItem(formData: FormData) {
   }
   const slides = text('slides')
   if (slides !== undefined) {
-    patch.slides = slides
-      ? slides.split('\n').filter(Boolean).map((l) => {
-          const [title, ...rest] = l.split('|')
-          return { title: title.trim(), body: rest.join('|').trim() || undefined }
-        })
-      : null
+    if (slides && slides.startsWith('[')) {
+      // Diapositivas avanzadas (mapa mental, pasos, portada con imagen) se editan como JSON.
+      try {
+        patch.slides = JSON.parse(slides)
+      } catch {
+        throw new Error('Las diapositivas no son un JSON válido: revisa comas y comillas.')
+      }
+    } else {
+      patch.slides = slides
+        ? slides.split('\n').filter(Boolean).map((l) => {
+            const [title, ...rest] = l.split('|')
+            return { title: title.trim(), body: rest.join('|').trim() || undefined }
+          })
+        : null
+    }
   }
   const mediaUrls = text('media_urls')
   if (mediaUrls !== undefined) patch.media_urls = mediaUrls ? mediaUrls.split(/\s+/).filter(Boolean) : null
@@ -187,6 +221,7 @@ export async function saveItem(formData: FormData) {
 
   await supabase.from('content_items').update(patch).eq('id', id)
   revalidatePath('/admin/contenido')
+  revalidatePath('/admin/hoy')
 }
 
 // URL firmada para que el navegador suba el video/imagen directo a Storage (Vercel no
@@ -214,6 +249,7 @@ export async function attachMedia(itemId: string, urls: string[]) {
     .update({ ...patch, status: data.status === 'produccion' ? 'revision' : data.status, updated_at: new Date().toISOString() })
     .eq('id', itemId)
   revalidatePath('/admin/contenido')
+  revalidatePath('/admin/hoy')
 }
 
 export async function publishNow(formData: FormData) {
@@ -223,4 +259,39 @@ export async function publishNow(formData: FormData) {
   if (!data) return
   await publishItem(data as ContentItem)
   revalidatePath('/admin/contenido')
+  revalidatePath('/admin/hoy')
+}
+
+// Portada del carrusel creada por Moisés en Gemini: se guarda en la diapositiva 0 y la pieza
+// vuelve a Producción para que el renderer rehaga las imágenes con la portada.
+export async function attachCover(itemId: string, url: string) {
+  const { supabase } = await requireSession()
+  const { data } = await supabase.from('content_items').select('slides, status').eq('id', itemId).single()
+  if (!data?.slides?.length) return
+  const slides = [...(data.slides as Slide[])]
+  slides[0] = { ...slides[0], image: url }
+  await supabase
+    .from('content_items')
+    .update({
+      slides,
+      media_urls: null,
+      status: ['revision', 'aprobado', 'error'].includes(data.status) ? 'produccion' : data.status,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', itemId)
+  revalidatePath('/admin/hoy')
+  revalidatePath('/admin/contenido')
+  revalidatePath('/admin/hoy')
+}
+
+// Para cuando se publica a mano (redes aún sin conectar por API).
+export async function markPublished(formData: FormData) {
+  const { supabase } = await requireSession()
+  await supabase
+    .from('content_items')
+    .update({ status: 'publicado', published_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('id', String(formData.get('id')))
+  revalidatePath('/admin/hoy')
+  revalidatePath('/admin/contenido')
+  revalidatePath('/admin/hoy')
 }

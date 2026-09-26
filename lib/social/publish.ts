@@ -4,10 +4,8 @@ import { getToken } from './tokens'
 import { igPublishCarousel, igPublishReel } from './instagram'
 import { ttPublishVideo } from './tiktok'
 import type { ContentItem } from './types'
+import { fullCaption } from './captions'
 
-export function fullCaption(item: Pick<ContentItem, 'caption' | 'hashtags' | 'cta'>) {
-  return [item.caption, item.cta, item.hashtags].filter(Boolean).join('\n\n')
-}
 
 // Publica una pieza aprobada en sus plataformas. Si una plataforma falla, la otra sigue y el
 // error queda en last_error; la pieza solo pasa a "publicado" si al menos una salió.

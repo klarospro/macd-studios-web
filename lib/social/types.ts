@@ -8,7 +8,18 @@ export type ContentStatus =
   | 'descartado'
   | 'error'
 
-export type Slide = { title: string; body?: string }
+export type Slide = {
+  kind?: 'text' | 'mindmap' | 'steps'
+  title: string
+  body?: string
+  image?: string
+  image_prompt?: string
+  center?: string
+  branches?: { label: string; items?: string[] }[]
+  steps?: { label: string; detail?: string }[]
+}
+
+export type Story = { tipo: string; texto: string; sticker?: string }
 
 export type ContentItem = {
   id: string
@@ -18,6 +29,9 @@ export type ContentItem = {
   format: 'reel' | 'carrusel'
   platforms: ('instagram' | 'tiktok')[]
   pillar: string | null
+  category: string | null
+  cta_keyword: string | null
+  stories: Story[] | null
   title: string
   hook: string | null
   script: string | null

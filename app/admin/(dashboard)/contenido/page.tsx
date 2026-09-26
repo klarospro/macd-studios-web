@@ -24,7 +24,12 @@ const ADVANCE_LABEL: Partial<Record<ContentStatus, string>> = {
 }
 
 function ItemCard({ item }: { item: ContentItem }) {
-  const slidesText = (item.slides ?? []).map((s) => (s.body ? `${s.title} | ${s.body}` : s.title)).join('\n')
+  // Diapositivas simples: "Título | texto" por línea. Si hay mapa mental, pasos o portada con
+  // imagen, se editan como JSON para no perder la estructura.
+  const complex = (item.slides ?? []).some((s) => s.kind || s.image || s.image_prompt)
+  const slidesText = complex
+    ? JSON.stringify(item.slides, null, 2)
+    : (item.slides ?? []).map((s) => (s.body ? `${s.title} | ${s.body}` : s.title)).join('\n')
   return (
     <Card className="p-4">
       <div className="flex items-center gap-2 flex-wrap">
@@ -65,16 +70,21 @@ function ItemCard({ item }: { item: ContentItem }) {
           </Field>
           {item.format === 'reel' ? (
             <>
-              <Field label="Guion para grabar" hint="Una línea por frase; la primera es el gancho">
-                <Textarea name="script" rows={5} defaultValue={item.script ?? ''} />
+              <Field label="Guion para grabar" hint="GANCHO / PROBLEMA / SOLUCIÓN / PRUEBA / CTA + nota de grabación">
+                <Textarea name="script" rows={8} defaultValue={item.script ?? ''} />
               </Field>
               <Field label="Plano de fondo (IA)" hint="En inglés. Lo genera Higgsfield al renderizar; vacío = fondo de marca">
                 <Textarea name="visual_prompt" rows={2} defaultValue={item.visual_prompt ?? ''} />
               </Field>
             </>
           ) : (
-            <Field label="Diapositivas" hint="Una por línea: Título | texto">
-              <Textarea name="slides" rows={6} defaultValue={slidesText} />
+            <Field label="Diapositivas" hint={complex ? 'JSON (mapa mental, pasos, portada)' : 'Una por línea: Título | texto'}>
+              <Textarea
+                name="slides"
+                rows={complex ? 14 : 6}
+                defaultValue={slidesText}
+                className={complex ? 'font-mono text-xs' : undefined}
+              />
             </Field>
           )}
           <Field label="Caption">
