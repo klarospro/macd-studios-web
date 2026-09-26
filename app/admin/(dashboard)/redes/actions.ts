@@ -89,7 +89,8 @@ Estructura:
         { role: 'user', content: JSON.stringify(snapshot, null, 1) },
       ],
       'claude-sonnet-5',
-      2500
+      2500,
+      'analisis-perfil'
     )
 
     await supabase.from('social_analyses').insert({
@@ -133,7 +134,8 @@ Solo usa los datos dados; no inventes métricas que no están (no hay vistas, so
         { role: 'user', content: numbers },
       ],
       'claude-sonnet-5',
-      2200
+      2200,
+      'escaner-referencia'
     )
 
     const { error } = await supabase.from('social_references').upsert(
@@ -216,7 +218,7 @@ Al FINAL de tu respuesta escribe el resultado entre <json> y </json> con esta fo
           content: `${focus ? `Foco de esta investigación: ${focus}\n\n` : ''}MÉTRICAS REALES DE MACD:\n${ours}`,
         },
       ],
-      { maxSearches: 10 }
+      { maxSearches: 10, feature: 'benchmark' }
     )
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Error con la IA' }

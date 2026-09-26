@@ -1,4 +1,5 @@
 import 'server-only'
+import { recordAnthropic, type AnthropicUsage } from './usage'
 
 // Mismo patrón que group365 (app/api/anthropic/index.ts) — fetch directo, sin SDK.
 
@@ -40,13 +41,14 @@ async function post(body: Record<string, unknown>) {
     const err = await res.text()
     throw new Error(`Anthropic error ${res.status}: ${err}`)
   }
-  return res.json() as Promise<{ content: Block[]; stop_reason: string }>
+  return res.json() as Promise<{ content: Block[]; stop_reason: string; usage?: AnthropicUsage }>
 }
 
 export async function callAnthropic(
   messages: Array<{ role: string; content: string }>,
   model = 'claude-sonnet-5',
-  maxTokens = 1200
+  maxTokens = 1200,
+  feature = 'sin-etiqueta'
 ): Promise<string> {
   const { system, chatMessages } = splitSystem(messages)
   const data = await post({
@@ -55,6 +57,7 @@ export async function callAnthropic(
     ...(system ? { system } : {}),
     messages: chatMessages,
   })
+  await recordAnthropic(model, data.usage, feature)
   return textOf(data.content)
 }
 
@@ -63,7 +66,7 @@ export async function callAnthropic(
 // conversación con la respuesta parcial y el servidor continúa donde lo dejó.
 export async function callAnthropicWithWebSearch(
   messages: Array<{ role: string; content: string }>,
-  { model = 'claude-sonnet-5', maxTokens = 16000, maxSearches = 8 } = {}
+  { model = 'claude-sonnet-5', maxTokens = 16000, maxSearches = 8, feature = 'busqueda-web' } = {}
 ): Promise<string> {
   const { system, chatMessages } = splitSystem(messages)
   const convo = [...chatMessages]
@@ -77,6 +80,7 @@ export async function callAnthropicWithWebSearch(
       tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: maxSearches }],
       messages: convo,
     })
+    await recordAnthropic(model, data.usage, feature)
     texts.push(textOf(data.content))
     if (data.stop_reason !== 'pause_turn') break
     convo.push({ role: 'assistant', content: data.content })

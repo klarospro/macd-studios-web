@@ -100,7 +100,8 @@ Responde SOLO con un array JSON de 7 objetos con las claves: format, category, p
         { role: 'user', content: context },
       ],
       'claude-sonnet-5',
-      12000
+      12000,
+      'plan-semanal'
     )
   } catch (e) {
     return { error: e instanceof Error ? e.message : 'Error con la IA' }
