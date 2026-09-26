@@ -153,3 +153,10 @@ alter table social_references enable row level security;
 drop policy if exists "authenticated_full_access" on social_references;
 create policy "authenticated_full_access" on social_references
   for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+-- ── Generación con IA (Higgsfield) ──────────────────────────────────────
+-- visual_prompt: descripción del plano de fondo que escribe el estratega (en inglés).
+-- broll_url: clip generado y copiado a Storage. ai_cost_usd: coste estimado de la generación.
+alter table content_items add column if not exists visual_prompt text;
+alter table content_items add column if not exists broll_url text;
+alter table content_items add column if not exists ai_cost_usd numeric;

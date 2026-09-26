@@ -21,6 +21,9 @@ export type ContentItem = {
   title: string
   hook: string | null
   script: string | null
+  visual_prompt: string | null
+  broll_url: string | null
+  ai_cost_usd: number | null
   slides: Slide[] | null
   caption: string | null
   hashtags: string | null

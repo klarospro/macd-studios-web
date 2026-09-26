@@ -79,23 +79,39 @@ Si cambia la estrategia, se cambian esos dos archivos, no cada prompt por separa
 - Está pensado para que una persona genere a mano. Nosotros necesitamos que lo haga un agente.
 - La versión alojada (openhiggsfield.ai) pide tu clave de la plataforma: **no pegarla ahí.**
 
-**Decisión:** los agentes llaman directamente a las APIs, sin intermediarios:
+**Actualización del 26/09: Higgsfield abrió su API directa** (`api.higgsfield.ai`, docs.higgsfield.ai).
+Pasa a ser el **proveedor principal de video e imagen**:
+- Una sola clave da acceso a Kling, Seedance, MiniMax, Wan, LTX, Soul y más.
+- Pago por uso desde $5 de recarga. Tiene un endpoint `/estimate` para saber el coste antes de generar.
+- Admite webhooks.
 
-| Necesidad | Servicio | Por qué |
+**Decisión:**
+
+| Necesidad | Servicio | Estado |
 |---|---|---|
-| Video de IA (planos, b-roll) e imágenes | **fal.ai** (Kling, Seedance, Veo y Flux con una sola clave) | Pago por uso, sin suscripción, API documentada y los mismos modelos que Higgsfield. **Alternativa:** API de Higgsfield si sale más barata por clip. |
-| Avatar de Moisés hablando | **HeyGen API** | Avatar a partir de 2–5 minutos de video tuyo a cámara |
-| Voz (avatar y Viernes) | **ElevenLabs** | Voz clonada o de catálogo; la misma cuenta sirve para el bot Viernes |
-| Montaje con la marca | **Remotion** (ya hecho) | Une avatar, b-roll, subtítulos y marca en un MP4 final |
+| Planos de fondo (b-roll) e imágenes | **Higgsfield API** (por defecto `kling-video/v2.5-turbo/pro/text-to-video`, 5 s) | ✅ **Conectado** en `macd-content/scripts/providers/higgsfield.mjs`. Falta la clave. |
+| Alternativa para video e imagen | fal.ai | Solo si Higgsfield falla o sale más caro |
+| Avatar hiperrealista de Moisés hablando | **HeyGen API** (Avatar IV). Alternativa: Hedra | Pendiente: la API de Higgsfield no documenta avatares con lipsync |
+| Voz (avatar y Viernes) | **ElevenLabs** | Pendiente de clave |
+| Montaje con la marca | **Remotion** | ✅ Hecho |
 
-**Cómo encaja sin rehacer nada:** el Productor gana un paso previo. Para cada reel pide a fal.ai
-los planos de fondo y a HeyGen el avatar leyendo el guion. Después Remotion los monta con las
-plantillas actuales. El flujo de aprobación del panel no cambia.
+**Cómo funciona ya:**
+1. El estratega escribe un `visual_prompt` en inglés para cada reel.
+2. Al renderizar, el Productor pide el coste a Higgsfield y **no genera si pasa del tope** (`HF_MAX_USD_PER_ITEM`, por defecto $1).
+3. Genera el clip, lo copia a tu Storage (Higgsfield solo lo guarda 7 días) y Remotion lo monta de fondo, con un velo oscuro para que el texto de marca se lea siempre.
+4. El coste queda anotado en la pieza (`ai_cost_usd`) y se ve en el panel.
+5. Si cambias el `visual_prompt`, el clip se regenera.
+
+**Variables (`macd-content/.env`):**
+- `HF_KEY=<id>:<secret>`, de cloud.higgsfield.ai → API keys.
+- Opcionales: `HF_MAX_USD_PER_ITEM` y `HF_BROLL_MODEL`.
+
+**Nota de formato:** el endpoint de Kling usado no admite elegir la proporción. Si el clip sale horizontal, Remotion lo recorta al centro en vertical. Si hace falta más calidad vertical, cambiar `HF_BROLL_MODEL` por un modelo con 9:16.
 
 ## 5. Presupuesto para arrancar
 
-Mismo cálculo que el plan maestro, §4: **~$150–160 al mes** (Anthropic $50, fal.ai $50,
-HeyGen ~$24–30, ElevenLabs ~$22). Instagram, TikTok, Remotion (hasta 3 personas) y el cron de
+Mismo cálculo que el plan maestro, §4: **~$150–160 al mes** (Anthropic $50, Higgsfield $50,
+HeyGen ~$24–30, ElevenLabs ~$22). Con el tope de $1 por pieza, 30 reels al mes cuestan como máximo ~$30 en planos de fondo. Instagram, TikTok, Remotion (hasta 3 personas) y el cron de
 Vercel cuestan $0. **La recarga de saldo la haces tú, porque es un tema de finanzas.**
 
 ## 6. Lo que tienes que hacer tú, en orden

@@ -34,7 +34,10 @@ function ItemCard({ item }: { item: ContentItem }) {
       </div>
       <h3 className="text-white font-medium mt-2">{item.title}</h3>
       {item.hook && <p className="text-sm text-[#D4AF37] mt-1">“{item.hook}”</p>}
-      <p className="text-xs text-zinc-600 mt-1">{item.platforms.join(' + ')}</p>
+      <p className="text-xs text-zinc-600 mt-1">
+        {item.platforms.join(' + ')}
+        {item.ai_cost_usd != null && ` · IA $${Number(item.ai_cost_usd).toFixed(2)}`}
+      </p>
 
       {item.last_error && <p className="text-xs text-[#e05555] mt-2">{item.last_error}</p>}
 
@@ -61,9 +64,14 @@ function ItemCard({ item }: { item: ContentItem }) {
             <Input name="hook" defaultValue={item.hook ?? ''} />
           </Field>
           {item.format === 'reel' ? (
-            <Field label="Texto en pantalla" hint="Una frase por línea">
-              <Textarea name="script" rows={5} defaultValue={item.script ?? ''} />
-            </Field>
+            <>
+              <Field label="Texto en pantalla" hint="Una frase por línea">
+                <Textarea name="script" rows={5} defaultValue={item.script ?? ''} />
+              </Field>
+              <Field label="Plano de fondo (IA)" hint="En inglés. Lo genera Higgsfield al renderizar; vacío = fondo de marca">
+                <Textarea name="visual_prompt" rows={2} defaultValue={item.visual_prompt ?? ''} />
+              </Field>
+            </>
           ) : (
             <Field label="Diapositivas" hint="Una por línea: Título | texto">
               <Textarea name="slides" rows={6} defaultValue={slidesText} />

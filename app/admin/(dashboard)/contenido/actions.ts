@@ -18,6 +18,7 @@ type PlannedItem = {
   title: string
   hook: string
   script?: string
+  visual_prompt?: string
   slides?: { title: string; body?: string }[]
   caption: string
   cta: string
@@ -64,9 +65,10 @@ ${MACD_GROWTH_CONTEXT}
 Eres el estratega y guionista de contenido de MACD Studios. Moisés publica 1 pieza al día en Instagram y TikTok.
 No menciones precios. Usa como "pillar" exactamente uno de: ${PILLARS.join(', ')}.
 Reel = 20-35 s, texto en pantalla, gancho en el primer segundo; "script" son 4-6 frases cortas (una por línea) que aparecerán en pantalla.
+Cada reel lleva "visual_prompt": en INGLÉS, 1-2 frases describiendo un plano de fondo cinematográfico de 5 s que refuerce el mensaje (ej. "a smartphone lighting up on a dark desk at night with unread messages, real estate office"). Sin texto en pantalla, sin logos, sin personas reconocibles.
 Carrusel = 5-7 diapositivas; "slides" = [{title, body}] con título corto (máx 8 palabras) y body opcional (máx 25 palabras).
 Alterna reel y carrusel (4 reels y 3 carruseles). Captions en español, cercanos, máx 600 caracteres. hashtags: 5-8, relevantes.
-Responde SOLO con un array JSON de 7 objetos con las claves: format, pillar, title, hook, script (solo reel), slides (solo carrusel), caption, cta, hashtags. Sin texto antes ni después.`,
+Responde SOLO con un array JSON de 7 objetos con las claves: format, pillar, title, hook, script y visual_prompt (solo reel), slides (solo carrusel), caption, cta, hashtags. Sin texto antes ni después.`,
         },
         { role: 'user', content: context },
       ],
@@ -101,6 +103,7 @@ Responde SOLO con un array JSON de 7 objetos con las claves: format, pillar, tit
       title: it.title,
       hook: it.hook,
       script: it.format === 'reel' ? it.script ?? null : null,
+      visual_prompt: it.format === 'reel' ? it.visual_prompt ?? null : null,
       slides: it.format === 'carrusel' ? it.slides ?? null : null,
       caption: it.caption,
       cta: it.cta,
@@ -156,6 +159,7 @@ export async function saveItem(formData: FormData) {
     caption: text('caption'),
     cta: text('cta'),
     hashtags: text('hashtags'),
+    visual_prompt: text('visual_prompt'),
     scheduled_for: text('scheduled_for'),
     media_url: text('media_url'),
     updated_at: new Date().toISOString(),
@@ -172,6 +176,12 @@ export async function saveItem(formData: FormData) {
   const mediaUrls = text('media_urls')
   if (mediaUrls !== undefined) patch.media_urls = mediaUrls ? mediaUrls.split(/\s+/).filter(Boolean) : null
   for (const k of Object.keys(patch)) if (patch[k] === undefined) delete patch[k]
+
+  // Si cambia la descripción del plano de fondo, el clip ya generado deja de valer.
+  if ('visual_prompt' in patch) {
+    const { data: prev } = await supabase.from('content_items').select('visual_prompt').eq('id', id).single()
+    if (prev && prev.visual_prompt !== patch.visual_prompt) patch.broll_url = null
+  }
 
   await supabase.from('content_items').update(patch).eq('id', id)
   revalidatePath('/admin/contenido')
