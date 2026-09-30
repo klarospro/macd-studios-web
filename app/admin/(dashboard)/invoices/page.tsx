@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { requireSession } from '@/lib/admin/dal'
-import { PageHeader, LinkButton, Table, Th, Td, EmptyState, Badge, Select, money } from '@/components/admin/ui'
+import { PageHeader, LinkButton, Table, Th, Td, EmptyState, Badge, money } from '@/components/admin/ui'
+import { StatusFilter } from './StatusFilter'
 import type { Invoice, InvoiceStatus } from '@/lib/admin/types'
 
 export const revalidate = 0
@@ -45,16 +46,7 @@ export default async function InvoicesPage({
         }
       />
 
-      <form className="mb-4">
-        <Select name="status" defaultValue={status ?? ''} className="max-w-xs" onChange={(e) => e.currentTarget.form?.submit()}>
-          <option value="">Todos los estados</option>
-          <option value="draft">Draft</option>
-          <option value="sent">Sent</option>
-          <option value="paid">Paid</option>
-          <option value="overdue">Overdue</option>
-          <option value="cancelled">Cancelled</option>
-        </Select>
-      </form>
+      <StatusFilter status={status} />
 
       {!invoices?.length ? (
         <EmptyState title="Sin facturas todavía" hint="Crea tu primera factura." />
