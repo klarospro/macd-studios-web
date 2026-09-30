@@ -2,6 +2,11 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type DocumentKind = 'invoices' | 'receipts' | 'contracts'
 
+/** Marca que liga un archivo del bucket "documents" a un cliente (va en el nombre del archivo). */
+export function clientDocTag(clientId: string) {
+  return `${clientId}__`
+}
+
 /** Sube un archivo al bucket privado "documents" bajo el prefijo indicado. Devuelve el path guardado. */
 export async function uploadDocument(
   supabase: SupabaseClient,

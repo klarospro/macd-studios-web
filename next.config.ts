@@ -5,6 +5,11 @@ import type { NextConfig } from "next";
 const ATLAS = "https://atlas-capital-web.vercel.app";
 
 const nextConfig: NextConfig = {
+  // Recibos y contratos se suben por Server Action; el límite por defecto (1 MB) deja fuera
+  // las fotos de móvil. 4 MB queda por debajo del límite de cuerpo de Vercel (4,5 MB).
+  experimental: {
+    serverActions: { bodySizeLimit: "4mb" },
+  },
   async redirects() {
     return [
       { source: "/atlas", destination: ATLAS, permanent: false },

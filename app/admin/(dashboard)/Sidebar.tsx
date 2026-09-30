@@ -57,6 +57,8 @@ export default function Sidebar({ email }: { email: string }) {
             <Link
               key={href}
               href={href}
+              // Precargar las ~15 secciones a la vez provocaba 503 en ráfaga (incluidos envíos de formularios).
+              prefetch={false}
               className={cn(
                 'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors shrink-0',
                 active
