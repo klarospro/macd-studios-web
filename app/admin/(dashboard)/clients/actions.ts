@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireSession } from '@/lib/admin/dal'
+import { uploadDocument, clientDocTag } from '@/lib/admin/storage'
 
 export type ActionState = { error?: string } | undefined
 
@@ -80,4 +81,34 @@ export async function deleteClient(id: string): Promise<ActionState> {
 
   revalidatePath('/admin/clients')
   return undefined
+}
+
+const CLIENT_DOC_KINDS = ['contracts', 'invoices', 'receipts'] as const
+
+export async function uploadClientDocument(
+  clientId: string,
+  formData: FormData
+): Promise<ActionState & { success?: boolean }> {
+  const { supabase } = await requireSession()
+  const file = formData.get('file') as File | null
+  const kind = z.enum(CLIENT_DOC_KINDS).safeParse(formData.get('kind'))
+  if (!file || file.size === 0) return { error: 'Selecciona un archivo' }
+  if (!kind.success) return { error: 'Tipo de documento inválido' }
+
+  const buffer = Buffer.from(await file.arrayBuffer())
+  try {
+    await uploadDocument(
+      supabase,
+      kind.data,
+      `${clientDocTag(clientId)}${file.name}`,
+      buffer,
+      file.type || 'application/octet-stream'
+    )
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'No se pudo subir el documento' }
+  }
+
+  revalidatePath(`/admin/clients/${clientId}`)
+  revalidatePath('/admin/documents')
+  return { success: true }
 }
