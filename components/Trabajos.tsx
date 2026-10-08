@@ -1,5 +1,6 @@
-﻿"use client";
+"use client";
 
+import type { ReactNode } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { ExternalLink, ArrowUpRight, Star } from "lucide-react";
@@ -32,6 +33,98 @@ const trabajos = [
     desc: "Web automatizada para una comunidad con eventos y congresos propios, con toda la informacion e inscripciones centralizadas.",
     url: "https://vidanuevareus.com",
     img: "/images/trabajos/vida-nueva-reus.webp",
+  },
+];
+
+type Caso = {
+  etiqueta: string;
+  nombre: string;
+  subtitulo: string;
+  logo?: string;
+  url?: string;
+  estado?: string;
+  construido: string[];
+  resultadoTitulo: string;
+  resultado: ReactNode;
+  nota?: string;
+  stats: { valor: string; label: string }[];
+};
+
+const casos: Caso[] = [
+  {
+    etiqueta: "Caso de estudio · Restaurant OS · Hostelería",
+    nombre: "SANTO CALI",
+    subtitulo: "Bar-club en Reus: todo el local en un solo sistema",
+    logo: "/images/trabajos/santo-cali-logo.svg",
+    estado: "En instalación · octubre 2026",
+    construido: [
+      "TPV en tablets y pantalla de barra que sigue funcionando aunque se caiga internet",
+      "Carta QR en 3 idiomas con pago desde la mesa",
+      "Asistente de WhatsApp con IA para reservas y dudas de clientes",
+      "Gerente por Telegram: facturas por foto y pedidos a proveedores",
+      "CRM de clientes, stock, caja y facturación encadenada (VeriFactu)",
+    ],
+    resultadoTitulo: "Resultado",
+    resultado: (
+      <>
+        Un sistema a medida que sustituye{" "}
+        <span className="text-yellow-400 font-semibold">TPV, carta, reservas y gestión de compras</span>. Primer local
+        con MACD Restaurant OS.
+      </>
+    ),
+    stats: [
+      { valor: "Sin internet", label: "el local sigue vendiendo" },
+      { valor: "3 idiomas", label: "carta QR ES · CA · EN" },
+      { valor: "24/7", label: "asistente de WhatsApp" },
+      { valor: "VeriFactu", label: "facturación preparada" },
+    ],
+  },
+  {
+    etiqueta: "Caso de estudio · Automatización completa",
+    nombre: "GROUP 360",
+    subtitulo: "De cero a sistema completo en 7 días",
+    url: "https://group360iniciativas.com",
+    construido: [
+      "Bot de WhatsApp con IA atendiendo 24/7",
+      "Panel de control por Telegram con 9 comandos",
+      "Dashboard de inversores con calculadora ROI",
+      "12 páginas web + 16 endpoints + gestión de alquileres",
+    ],
+    resultadoTitulo: "Resultado",
+    resultado: (
+      <>
+        Contrato cerrado por{" "}
+        <span className="text-yellow-400 font-semibold">3.000€ de instalación + 250€/mes recurrente</span>, en la misma
+        semana de la entrega.
+      </>
+    ),
+    stats: [
+      { valor: "7 días", label: "de desarrollo" },
+      { valor: "40 commits", label: "en total" },
+      { valor: "~5.800 líneas", label: "de código" },
+      { valor: "<25€/mes", label: "coste operativo" },
+    ],
+  },
+  {
+    etiqueta: "Producto propio · Sistema de trading automatizado",
+    nombre: "ATLAS CAPITAL",
+    subtitulo: "Gestion de capital automatizada, 24/7, multi-mercado",
+    url: "https://atlas-capital-web.vercel.app",
+    construido: [
+      "Motor de trading automatizado multi-activo (cripto, forex, indices, prediction markets)",
+      "Control de riesgo unificado con cierre automatico de posiciones",
+      "Monitoreo continuo 24/7 con registro de auditoria inmutable",
+      "Dashboard propio de seguimiento del sistema",
+    ],
+    resultadoTitulo: "Resultado (backtest)",
+    resultado: "Rendimiento consistente y control de riesgo disciplinado a lo largo del periodo evaluado en backtesting.",
+    nota: "Resultados de backtesting, no constituyen garantia de rendimiento futuro.",
+    stats: [
+      { valor: "24/7", label: "monitoreo automatizado" },
+      { valor: "4 mercados", label: "cripto · forex · indices · prediction" },
+      { valor: "Multi-activo", label: "diversificacion de riesgo" },
+      { valor: "Auditable", label: "registro inmutable" },
+    ],
   },
 ];
 
@@ -106,151 +199,83 @@ export default function Trabajos() {
           ))}
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.2 }}
-          className="mt-12 bg-gradient-to-br from-white/5 to-transparent border border-yellow-600/30 hover:border-yellow-500/60 rounded-3xl overflow-hidden transition-all duration-300"
-        >
-          <div className="bg-gradient-to-br from-yellow-900/30 to-zinc-900 px-8 py-10 border-b border-white/10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div>
-              <div className="text-yellow-500 text-xs tracking-widest uppercase mb-2">
-                Caso de estudio · Automatización completa
-              </div>
-              <h3 className="text-4xl lg:text-5xl font-bold">GROUP 360</h3>
-              <p className="text-gray-300 mt-2 text-lg">De cero a sistema completo en 7 días</p>
-            </div>
-            <motion.a
-              href="https://group360iniciativas.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.95 }}
-              className="inline-flex items-center gap-2 bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/40 hover:border-yellow-500/70 text-yellow-400 font-medium px-6 py-3 rounded-2xl transition-colors duration-200 shrink-0"
+        {casos.map((c, i) => (
+          <motion.div
+            key={c.nombre}
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 + i * 0.1 }}
+            className={`${i === 0 ? "mt-12" : "mt-8"} bg-gradient-to-br from-white/5 to-transparent border border-yellow-600/30 hover:border-yellow-500/60 rounded-3xl overflow-hidden transition-all duration-300`}
+          >
+            <div
+              className={`${i % 2 === 0 ? "bg-gradient-to-br from-yellow-900/30 to-zinc-900" : "bg-gradient-to-br from-zinc-900 to-yellow-900/20"} px-8 py-10 border-b border-white/10 flex flex-col md:flex-row md:items-center md:justify-between gap-6`}
             >
-              Ver sitio en vivo
-              <ExternalLink className="w-4 h-4" />
-            </motion.a>
-          </div>
-
-          <div className="p-8 lg:p-10 grid md:grid-cols-2 gap-10">
-            <div>
-              <div className="text-yellow-500 text-xs tracking-widest uppercase mb-4">Lo que construimos</div>
-              <ul className="space-y-3">
-                {[
-                  "Bot de WhatsApp con IA atendiendo 24/7",
-                  "Panel de control por Telegram con 9 comandos",
-                  "Dashboard de inversores con calculadora ROI",
-                  "12 páginas web + 16 endpoints + gestión de alquileres",
-                ].map((item, i) => (
-                  <li key={i} className="flex items-start gap-3">
-                    <span className="text-yellow-500 mt-0.5 shrink-0">→</span>
-                    <span className="text-gray-300">{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="space-y-6">
-              <div>
-                <div className="text-yellow-500 text-xs tracking-widest uppercase mb-3">Resultado</div>
-                <p className="text-white leading-relaxed">
-                  Contrato cerrado por{" "}
-                  <span className="text-yellow-400 font-semibold">3.000€ de instalación + 250€/mes recurrente</span>
-                  , en la misma semana de la entrega.
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { valor: "7 días", label: "de desarrollo" },
-                  { valor: "40 commits", label: "en total" },
-                  { valor: "~5.800 líneas", label: "de código" },
-                  { valor: "<25€/mes", label: "coste operativo" },
-                ].map((s, i) => (
-                  <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-4">
-                    <div className="text-yellow-400 font-bold text-lg">{s.valor}</div>
-                    <div className="text-gray-500 text-sm mt-0.5">{s.label}</div>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-6">
+                {c.logo && (
+                  <div className="relative w-36 h-24 shrink-0 bg-black/60 border border-white/10 rounded-2xl">
+                    <Image src={c.logo} alt={`Logo de ${c.nombre}`} fill sizes="144px" className="object-contain p-2" />
                   </div>
-                ))}
+                )}
+                <div>
+                  <div className="text-yellow-500 text-xs tracking-widest uppercase mb-2">{c.etiqueta}</div>
+                  <h3 className="text-4xl lg:text-5xl font-bold">{c.nombre}</h3>
+                  <p className="text-gray-300 mt-2 text-lg">{c.subtitulo}</p>
+                </div>
               </div>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.3 }}
-          className="mt-8 bg-gradient-to-br from-white/5 to-transparent border border-yellow-600/30 hover:border-yellow-500/60 rounded-3xl overflow-hidden transition-all duration-300"
-        >
-          <div className="bg-gradient-to-br from-zinc-900 to-yellow-900/20 px-8 py-10 border-b border-white/10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div>
-              <div className="text-yellow-500 text-xs tracking-widest uppercase mb-2">
-                Producto propio · Sistema de trading automatizado
-              </div>
-              <h3 className="text-4xl lg:text-5xl font-bold">ATLAS CAPITAL</h3>
-              <p className="text-gray-300 mt-2 text-lg">Gestion de capital automatizada, 24/7, multi-mercado</p>
-            </div>
-            <motion.a
-              href="https://atlas-capital-web.vercel.app"
-              target="_blank"
-              rel="noopener noreferrer"
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.95 }}
-              className="inline-flex items-center gap-2 bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/40 hover:border-yellow-500/70 text-yellow-400 font-medium px-6 py-3 rounded-2xl transition-colors duration-200 shrink-0"
-            >
-              Ver sitio en vivo
-              <ExternalLink className="w-4 h-4" />
-            </motion.a>
-          </div>
-
-          <div className="p-8 lg:p-10 grid md:grid-cols-2 gap-10">
-            <div>
-              <div className="text-yellow-500 text-xs tracking-widest uppercase mb-4">Lo que construimos</div>
-              <ul className="space-y-3">
-                {[
-                  "Motor de trading automatizado multi-activo (cripto, forex, indices, prediction markets)",
-                  "Control de riesgo unificado con cierre automatico de posiciones",
-                  "Monitoreo continuo 24/7 con registro de auditoria inmutable",
-                  "Dashboard propio de seguimiento del sistema",
-                ].map((item, i) => (
-                  <li key={i} className="flex items-start gap-3">
-                    <span className="text-yellow-500 mt-0.5 shrink-0">→</span>
-                    <span className="text-gray-300">{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="space-y-6">
-              <div>
-                <div className="text-yellow-500 text-xs tracking-widest uppercase mb-3">Resultado (backtest)</div>
-                <p className="text-white leading-relaxed">
-                  Rendimiento consistente y control de riesgo disciplinado a lo largo del periodo
-                  evaluado en backtesting.
-                </p>
-                <p className="text-gray-500 text-xs mt-2">
-                  Resultados de backtesting, no constituyen garantia de rendimiento futuro.
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { valor: "24/7", label: "monitoreo automatizado" },
-                  { valor: "4 mercados", label: "cripto · forex · indices · prediction" },
-                  { valor: "Multi-activo", label: "diversificacion de riesgo" },
-                  { valor: "Auditable", label: "registro inmutable" },
-                ].map((s, i) => (
-                  <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-4">
-                    <div className="text-yellow-400 font-bold text-lg">{s.valor}</div>
-                    <div className="text-gray-500 text-sm mt-0.5">{s.label}</div>
+              {c.url ? (
+                <motion.a
+                  href={c.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="inline-flex items-center gap-2 bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/40 hover:border-yellow-500/70 text-yellow-400 font-medium px-6 py-3 rounded-2xl transition-colors duration-200 shrink-0"
+                >
+                  Ver sitio en vivo
+                  <ExternalLink className="w-4 h-4" />
+                </motion.a>
+              ) : (
+                c.estado && (
+                  <div className="inline-flex items-center gap-2 bg-white/5 border border-white/15 text-gray-300 text-sm font-medium px-5 py-3 rounded-2xl shrink-0 self-start md:self-auto">
+                    <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+                    {c.estado}
                   </div>
-                ))}
+                )
+              )}
+            </div>
+
+            <div className="p-8 lg:p-10 grid md:grid-cols-2 gap-10">
+              <div>
+                <div className="text-yellow-500 text-xs tracking-widest uppercase mb-4">Lo que construimos</div>
+                <ul className="space-y-3">
+                  {c.construido.map((item) => (
+                    <li key={item} className="flex items-start gap-3">
+                      <span className="text-yellow-500 mt-0.5 shrink-0">→</span>
+                      <span className="text-gray-300">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <div className="text-yellow-500 text-xs tracking-widest uppercase mb-3">{c.resultadoTitulo}</div>
+                  <p className="text-white leading-relaxed">{c.resultado}</p>
+                  {c.nota && <p className="text-gray-500 text-xs mt-2">{c.nota}</p>}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {c.stats.map((s) => (
+                    <div key={s.valor} className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                      <div className="text-yellow-400 font-bold text-lg">{s.valor}</div>
+                      <div className="text-gray-500 text-sm mt-0.5">{s.label}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        ))}
       </div>
     </section>
   );
