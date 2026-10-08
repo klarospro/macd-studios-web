@@ -1,12 +1,12 @@
-﻿"use client";
+"use client";
 
 import { motion } from "framer-motion";
 import { MessageCircle, PenTool, Rocket, TrendingUp } from "lucide-react";
 
 const pasos = [
-  { icon: MessageCircle, num: "01", titulo: "Hablamos", desc: "Nos cuentas tu negocio y tus problemas. Analizamos donde pierdes clientes y dinero." },
-  { icon: PenTool, num: "02", titulo: "Disenamos", desc: "Creamos tu web, tu bot y tu sistema a medida. Personalizado para tu sector." },
-  { icon: Rocket, num: "03", titulo: "Lanzamos", desc: "En 1-2 semanas todo esta funcionando. Te formamos para que lo manejes facil." },
+  { icon: MessageCircle, num: "01", titulo: "Hablamos", desc: "Nos cuentas tu negocio y tus problemas. Analizamos dónde pierdes clientes y dinero." },
+  { icon: PenTool, num: "02", titulo: "Diseñamos", desc: "Creamos tu web, tu CRM, tus automatizaciones o tu sistema completo, a medida. Personalizado para tu sector." },
+  { icon: Rocket, num: "03", titulo: "Lanzamos", desc: "En 1-2 semanas todo está funcionando. Te formamos para que lo manejes fácil." },
   { icon: TrendingUp, num: "04", titulo: "Creces", desc: "Tu negocio capta clientes 24/7. Nosotros optimizamos y mejoramos cada mes." },
 ];
 
@@ -20,7 +20,7 @@ export default function ComoFunciona() {
           viewport={{ once: true }}
           className="text-center mb-20"
         >
-          <div className="text-yellow-500 text-sm tracking-[0.3em] uppercase mb-4">Como funciona</div>
+          <div className="text-yellow-500 text-sm tracking-[0.3em] uppercase mb-4">Cómo funciona</div>
           <h2 className="text-4xl lg:text-6xl font-bold mb-6">
             De la idea al resultado<br /><span className="text-gold-gradient italic">en 4 pasos.</span>
           </h2>

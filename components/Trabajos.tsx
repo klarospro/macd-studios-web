@@ -3,19 +3,29 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { ExternalLink, ArrowUpRight, Star } from "lucide-react";
+import { ExternalLink, ArrowUpRight } from "lucide-react";
 
 const trabajos = [
   {
+    nombre: "Vida Nueva Reus",
+    sector: "Congresos y eventos",
+    tipo: "Cliente",
+    desc: "Web automatizada para una comunidad con eventos y congresos propios, con toda la información e inscripciones centralizadas.",
+    url: "https://vidanuevareus.com",
+    img: "/images/trabajos/vida-nueva-reus.webp",
+  },
+  {
     nombre: "Aurora Dental",
-    sector: "Clinica Dental",
-    desc: "Web premium con bot que agenda citas 24/7 y reduce no-shows. Calculadora de perdidas integrada.",
+    sector: "Clínica dental",
+    tipo: "Demo",
+    desc: "Web premium con bot que agenda citas 24/7 y reduce no-shows. Calculadora de pérdidas integrada.",
     url: "https://aurora-dental-demo-yr9e.vercel.app",
     img: "/images/trabajos/aurora-dental.webp",
   },
   {
     nombre: "Pizza Studio",
     sector: "Restaurante",
+    tipo: "Demo",
     desc: "Sistema de pedidos por WhatsApp con bot italiano. Captura el 85% de pedidos perdidos fuera de horario.",
     url: "https://pizza-studio-demo.vercel.app",
     img: "/images/trabajos/pizza-studio.webp",
@@ -23,16 +33,10 @@ const trabajos = [
   {
     nombre: "Vista Inmobiliaria",
     sector: "Inmobiliaria",
-    desc: "Bot que cualifica leads en 3 minutos. Solo compradores reales llegan a los agentes. Premium total.",
+    tipo: "Demo",
+    desc: "Bot que cualifica leads en 3 minutos para que solo los compradores reales lleguen a los agentes.",
     url: "https://vista-inmobiliaria-demo-5w7y.vercel.app",
     img: "/images/trabajos/vista-inmobiliaria.webp",
-  },
-  {
-    nombre: "Vida Nueva Reus",
-    sector: "Congresos y eventos",
-    desc: "Web automatizada para una comunidad con eventos y congresos propios, con toda la informacion e inscripciones centralizadas.",
-    url: "https://vidanuevareus.com",
-    img: "/images/trabajos/vida-nueva-reus.webp",
   },
 ];
 
@@ -44,9 +48,7 @@ type Caso = {
   url?: string;
   estado?: string;
   construido: string[];
-  resultadoTitulo: string;
   resultado: ReactNode;
-  nota?: string;
   stats: { valor: string; label: string }[];
 };
 
@@ -64,7 +66,6 @@ const casos: Caso[] = [
       "Gerente por Telegram: facturas por foto y pedidos a proveedores",
       "CRM de clientes, stock, caja y facturación encadenada (VeriFactu)",
     ],
-    resultadoTitulo: "Resultado",
     resultado: (
       <>
         Un sistema a medida que sustituye{" "}
@@ -90,40 +91,17 @@ const casos: Caso[] = [
       "Dashboard de inversores con calculadora ROI",
       "12 páginas web + 16 endpoints + gestión de alquileres",
     ],
-    resultadoTitulo: "Resultado",
     resultado: (
       <>
-        Contrato cerrado por{" "}
-        <span className="text-yellow-400 font-semibold">3.000€ de instalación + 250€/mes recurrente</span>, en la misma
-        semana de la entrega.
+        De cero a <span className="text-yellow-400 font-semibold">sistema completo en producción</span> en una semana:
+        web, bot, panel de control y gestión de alquileres.
       </>
     ),
     stats: [
       { valor: "7 días", label: "de desarrollo" },
       { valor: "40 commits", label: "en total" },
       { valor: "~5.800 líneas", label: "de código" },
-      { valor: "<25€/mes", label: "coste operativo" },
-    ],
-  },
-  {
-    etiqueta: "Producto propio · Sistema de trading automatizado",
-    nombre: "ATLAS CAPITAL",
-    subtitulo: "Gestion de capital automatizada, 24/7, multi-mercado",
-    url: "https://atlas-capital-web.vercel.app",
-    construido: [
-      "Motor de trading automatizado multi-activo (cripto, forex, indices, prediction markets)",
-      "Control de riesgo unificado con cierre automatico de posiciones",
-      "Monitoreo continuo 24/7 con registro de auditoria inmutable",
-      "Dashboard propio de seguimiento del sistema",
-    ],
-    resultadoTitulo: "Resultado (backtest)",
-    resultado: "Rendimiento consistente y control de riesgo disciplinado a lo largo del periodo evaluado en backtesting.",
-    nota: "Resultados de backtesting, no constituyen garantia de rendimiento futuro.",
-    stats: [
-      { valor: "24/7", label: "monitoreo automatizado" },
-      { valor: "4 mercados", label: "cripto · forex · indices · prediction" },
-      { valor: "Multi-activo", label: "diversificacion de riesgo" },
-      { valor: "Auditable", label: "registro inmutable" },
+      { valor: "24/7", label: "bot de WhatsApp atendiendo" },
     ],
   },
 ];
@@ -138,66 +116,14 @@ export default function Trabajos() {
           viewport={{ once: true }}
           className="text-center mb-20"
         >
-          <div className="text-yellow-500 text-sm tracking-[0.3em] uppercase mb-4">Nuestros trabajos</div>
+          <div className="text-yellow-500 text-sm tracking-[0.3em] uppercase mb-4">Proyectos</div>
           <h2 className="text-4xl lg:text-6xl font-bold mb-6">
-            Casos reales,<br /><span className="text-gold-gradient italic">resultados reales.</span>
+            Negocios reales,<br /><span className="text-gold-gradient italic">sistemas funcionando.</span>
           </h2>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-            Cada proyecto es navegable. Pruebalos en vivo, habla con los bots, siente la experiencia.
+            Primero, lo que hemos construido para clientes. Después, demos que puedes probar en vivo.
           </p>
-          <div className="inline-flex items-center gap-2 mt-6 bg-white/5 border border-yellow-600/20 rounded-full px-5 py-2.5">
-            <div className="flex gap-0.5">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star key={i} className="w-4 h-4 fill-yellow-500 text-yellow-500" />
-              ))}
-            </div>
-            <span className="text-sm text-gray-300">100% de clientes satisfechos con el resultado entregado</span>
-          </div>
         </motion.div>
-
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {trabajos.map((t, i) => (
-            <motion.a
-              key={i}
-              href={t.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.15 }}
-              whileHover={{ y: -10 }}
-              whileTap={{ scale: 0.97 }}
-              className="group relative bg-gradient-to-br from-white/5 to-transparent border border-white/10 hover:border-yellow-600/40 rounded-3xl overflow-hidden transition-all duration-300"
-            >
-              <div className="relative h-56 overflow-hidden">
-                <Image
-                  src={t.img}
-                  alt={`Captura de pantalla del sitio web ${t.nombre}`}
-                  fill
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-                  className="object-cover object-top group-hover:scale-110 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-                <motion.div
-                  whileHover={{ scale: 1.15, rotate: 8 }}
-                  className="absolute top-4 right-4 w-10 h-10 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:bg-yellow-500 transition-colors"
-                >
-                  <ArrowUpRight className="w-5 h-5 text-white group-hover:text-black transition-colors" />
-                </motion.div>
-              </div>
-              <div className="p-8">
-                <div className="text-yellow-500 text-xs tracking-widest uppercase mb-2">{t.sector}</div>
-                <h3 className="text-2xl font-bold mb-3">{t.nombre}</h3>
-                <p className="text-gray-400 mb-4 leading-relaxed">{t.desc}</p>
-                <div className="inline-flex items-center gap-2 text-yellow-500 font-medium">
-                  Ver en vivo
-                  <ExternalLink className="w-4 h-4" />
-                </div>
-              </div>
-            </motion.a>
-          ))}
-        </div>
 
         {casos.map((c, i) => (
           <motion.div
@@ -206,7 +132,7 @@ export default function Trabajos() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 + i * 0.1 }}
-            className={`${i === 0 ? "mt-12" : "mt-8"} bg-gradient-to-br from-white/5 to-transparent border border-yellow-600/30 hover:border-yellow-500/60 rounded-3xl overflow-hidden transition-all duration-300`}
+            className={`${i === 0 ? "" : "mt-8"} bg-gradient-to-br from-white/5 to-transparent border border-yellow-600/30 hover:border-yellow-500/60 rounded-3xl overflow-hidden transition-all duration-300`}
           >
             <div
               className={`${i % 2 === 0 ? "bg-gradient-to-br from-yellow-900/30 to-zinc-900" : "bg-gradient-to-br from-zinc-900 to-yellow-900/20"} px-8 py-10 border-b border-white/10 flex flex-col md:flex-row md:items-center md:justify-between gap-6`}
@@ -260,9 +186,8 @@ export default function Trabajos() {
 
               <div className="space-y-6">
                 <div>
-                  <div className="text-yellow-500 text-xs tracking-widest uppercase mb-3">{c.resultadoTitulo}</div>
+                  <div className="text-yellow-500 text-xs tracking-widest uppercase mb-3">Resultado</div>
                   <p className="text-white leading-relaxed">{c.resultado}</p>
-                  {c.nota && <p className="text-gray-500 text-xs mt-2">{c.nota}</p>}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   {c.stats.map((s) => (
@@ -276,6 +201,58 @@ export default function Trabajos() {
             </div>
           </motion.div>
         ))}
+
+        <div className="text-yellow-500 text-xs tracking-widest uppercase mt-20 mb-8 text-center">Más proyectos y demos</div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          {trabajos.map((t, i) => (
+            <motion.a
+              key={t.nombre}
+              href={t.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.15 }}
+              whileHover={{ y: -10 }}
+              whileTap={{ scale: 0.97 }}
+              className="group relative bg-gradient-to-br from-white/5 to-transparent border border-white/10 hover:border-yellow-600/40 rounded-3xl overflow-hidden transition-all duration-300"
+            >
+              <div className="relative h-56 overflow-hidden">
+                <Image
+                  src={t.img}
+                  alt={`Captura de pantalla del sitio web ${t.nombre}`}
+                  fill
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  className="object-cover object-top group-hover:scale-110 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                <motion.div
+                  whileHover={{ scale: 1.15, rotate: 8 }}
+                  className="absolute top-4 right-4 w-10 h-10 bg-black/40 backdrop-blur-sm rounded-full flex items-center justify-center group-hover:bg-yellow-500 transition-colors"
+                >
+                  <ArrowUpRight className="w-5 h-5 text-white group-hover:text-black transition-colors" />
+                </motion.div>
+              </div>
+              <div className="p-8">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-yellow-500 text-xs tracking-widest uppercase">{t.sector}</span>
+                  <span
+                    className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${t.tipo === "Cliente" ? "bg-yellow-500 text-black" : "bg-white/10 text-gray-300"}`}
+                  >
+                    {t.tipo}
+                  </span>
+                </div>
+                <h3 className="text-2xl font-bold mb-3">{t.nombre}</h3>
+                <p className="text-gray-400 mb-4 leading-relaxed">{t.desc}</p>
+                <div className="inline-flex items-center gap-2 text-yellow-500 font-medium">
+                  {t.tipo === "Demo" ? "Probar la demo" : "Ver en vivo"}
+                  <ExternalLink className="w-4 h-4" />
+                </div>
+              </div>
+            </motion.a>
+          ))}
+        </div>
       </div>
     </section>
   );

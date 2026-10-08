@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next";
+import type { Metadata } from "next";
 import { Playfair_Display, Inter, JetBrains_Mono, Fraunces } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import CookieBanner from "@/components/CookieBanner";
@@ -39,11 +39,11 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "MACD Studios - Automatizacion con IA para tu negocio",
+    default: "MACD Studios - Sistemas a medida y automatización con IA",
     template: "%s | MACD Studios",
   },
-  description: "Webs premium, bots 24/7 con IA y sistemas que venden. Automatizamos clinicas, restaurantes, inmobiliarias y comunidades en Espana.",
-  keywords: ["automatizacion", "IA", "bots WhatsApp", "diseno web", "Espana", "negocios"],
+  description: "Sistemas a medida, CRM, bots con IA y automatizaciones para restaurantes, clínicas, inmobiliarias y comunidades en España.",
+  keywords: ["automatización", "CRM a medida", "IA", "bots WhatsApp", "diseño web", "TPV hostelería", "España", "negocios"],
   authors: [{ name: "MACD Studios" }],
   alternates: { canonical: "/" },
   openGraph: {
@@ -51,14 +51,14 @@ export const metadata: Metadata = {
     locale: "es_ES",
     url: SITE_URL,
     siteName: "MACD Studios",
-    title: "MACD Studios - Automatizacion con IA para tu negocio",
-    description: "Webs premium, bots 24/7 con IA y sistemas que venden. Automatizamos clinicas, restaurantes, inmobiliarias y comunidades en Espana.",
+    title: "MACD Studios - Sistemas a medida y automatización con IA",
+    description: "Sistemas a medida, CRM, bots con IA y automatizaciones para restaurantes, clínicas, inmobiliarias y comunidades en España.",
     images: [{ url: "/images/logo.png", width: 1200, height: 630, alt: "MACD Studios" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "MACD Studios - Automatizacion con IA para tu negocio",
-    description: "Webs premium, bots 24/7 con IA y sistemas que venden.",
+    title: "MACD Studios - Sistemas a medida y automatización con IA",
+    description: "Sistemas a medida, CRM, bots con IA y automatizaciones.",
     images: ["/images/logo.png"],
   },
   robots: {

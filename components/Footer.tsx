@@ -1,4 +1,4 @@
-﻿import { Send, Share2, Mail, Phone } from "lucide-react";
+import { Send, Share2, Mail, Phone } from "lucide-react";
 import Image from "next/image";
 
 export default function Footer() {
@@ -9,16 +9,16 @@ export default function Footer() {
           <div>
             <Image src="/images/logo.png" alt="MACD Studios" width={160} height={50} className="h-12 w-auto object-contain mb-4" />
             <p className="text-gray-400 leading-relaxed">
-              Automatizacion con inteligencia artificial para negocios que quieren crecer. Webs, bots y sistemas que venden.
+              Sistemas a medida para negocios que quieren crecer: webs, CRM, bots con IA y automatizaciones.
             </p>
           </div>
 
           <div>
-            <h4 className="font-bold mb-4 text-yellow-500">Navegacion</h4>
+            <h4 className="font-bold mb-4 text-yellow-500">Navegación</h4>
             <ul className="space-y-2 text-gray-400">
               <li><a href="#servicios" className="hover:text-yellow-500 transition-colors">Servicios</a></li>
-              <li><a href="#trabajos" className="hover:text-yellow-500 transition-colors">Trabajos</a></li>
-              <li><a href="#planes" className="hover:text-yellow-500 transition-colors">Planes</a></li>
+              <li><a href="#trabajos" className="hover:text-yellow-500 transition-colors">Proyectos</a></li>
+              <li><a href="#planes" className="hover:text-yellow-500 transition-colors">Presupuesto</a></li>
             </ul>
           </div>
 
@@ -54,7 +54,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-gray-500 text-sm">
-          <span>(c) 2026 MACD STUDIOS - Automatizacion con IA para tu negocio</span>
+          <span>© 2026 MACD STUDIOS · Sistemas a medida, CRM y automatización con IA</span>
           <div className="flex items-center gap-4">
             <a href="/legal/aviso-legal" className="hover:text-yellow-500 transition-colors">Aviso legal</a>
             <a href="/legal/privacidad" className="hover:text-yellow-500 transition-colors">Privacidad</a>

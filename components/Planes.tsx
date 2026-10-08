@@ -1,63 +1,53 @@
-﻿"use client";
+"use client";
 
 import { motion } from "framer-motion";
-import { Check, Send } from "lucide-react";
+import { Check, MessageCircle } from "lucide-react";
+import { whatsappConTexto } from "@/lib/contacto";
 
 const planes = [
   {
     nombre: "Esencial",
     subtitulo: "Empieza a automatizar",
-    inicial: "0",
-    cuotas: "",
-    mensual: "290",
+    ideal: "Para tener presencia online y captar contactos.",
     destacado: false,
     features: [
-      "Web profesional responsive",
-      "Bot web que capta leads",
-      "Boton directo a WhatsApp/Telegram",
+      "Web profesional, rápida y adaptada al móvil",
+      "Bot web que capta contactos",
+      "Botón directo a WhatsApp y Telegram",
       "Formulario inteligente",
-      "Hosting + dominio incluidos",
-      "SEO basico",
-      "1 revision mensual",
-      "Soporte por email",
+      "Hosting y dominio incluidos",
+      "SEO básico",
+      "Revisión mensual",
     ],
   },
   {
     nombre: "Profesional",
-    subtitulo: "Tu negocio en piloto automatico",
-    inicial: "700",
-    cuotas: "o 3 cuotas de 240 EUR",
-    mensual: "390",
+    subtitulo: "Tu negocio en piloto automático",
+    ideal: "Para dejar de hacer a mano lo que se repite cada día.",
     destacado: true,
     features: [
       "Todo lo del Esencial +",
-      "Bot WhatsApp/Telegram 24/7 con IA",
-      "Sistema de citas con calendario",
-      "Dashboard de gestion",
-      "Notificaciones automaticas",
-      "Recordatorios (menos no-shows)",
-      "Integracion Google Calendar",
-      "CRM basico + reportes",
-      "Soporte prioritario WhatsApp",
+      "CRM a medida con tus clientes y ventas",
+      "Automatizaciones: recordatorios, informes, facturas",
+      "Bot de WhatsApp o Telegram 24/7 con IA",
+      "Citas y reservas con calendario",
+      "Panel de gestión y reportes",
+      "Soporte prioritario por WhatsApp",
     ],
   },
   {
-    nombre: "Premium",
-    subtitulo: "Dominacion total",
-    inicial: "1.500",
-    cuotas: "o 3 cuotas de 500 EUR",
-    mensual: "590",
+    nombre: "Sistema completo",
+    subtitulo: "Todo tu negocio en un sistema",
+    ideal: "Para negocios que quieren llevarlo todo desde un mismo sitio.",
     destacado: false,
     features: [
       "Todo lo del Profesional +",
-      "Web cinematografica nivel premium",
-      "Bot IA que cierra ventas",
-      "Gestion redes sociales (12 posts/mes)",
-      "Campanas Meta/Google Ads",
-      "Programa de fidelizacion",
-      "Multi-idioma",
-      "CRM avanzado",
-      "2h consultoria/mes + soporte 24/7",
+      "Sistema de gestión a medida (TPV, stock, caja, facturación)",
+      "IA que lee facturas y propone pedidos",
+      "Pagos online y desde el móvil",
+      "Web multi-idioma de nivel premium",
+      "Redes sociales y campañas",
+      "Consultoría mensual y soporte 24/7",
     ],
   },
 ];
@@ -72,19 +62,19 @@ export default function Planes() {
           viewport={{ once: true }}
           className="text-center mb-20"
         >
-          <div className="text-yellow-500 text-sm tracking-[0.3em] uppercase mb-4">Planes</div>
+          <div className="text-yellow-500 text-sm tracking-[0.3em] uppercase mb-4">Presupuesto a medida</div>
           <h2 className="text-4xl lg:text-6xl font-bold mb-6">
-            Invierte en tu<br /><span className="text-gold-gradient italic">crecimiento.</span>
+            Pagas por lo que<br /><span className="text-gold-gradient italic">tu negocio necesita.</span>
           </h2>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-            Sin sorpresas. Eliges el plan, nosotros lo construimos. Garantia incluida.
+            Cada negocio es distinto. Nos cuentas qué necesitas y te preparamos un presupuesto a medida, sin compromiso.
           </p>
         </motion.div>
 
         <div className="grid md:grid-cols-3 gap-8 items-start">
           {planes.map((p, i) => (
             <motion.div
-              key={i}
+              key={p.nombre}
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -93,40 +83,29 @@ export default function Planes() {
             >
               {p.destacado && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-gold-gradient text-black text-xs font-bold tracking-widest uppercase px-4 py-2 rounded-full">
-                  Mas popular
+                  Recomendado
                 </div>
               )}
 
               <div className="text-yellow-500 text-xs tracking-widest uppercase mb-2">{p.subtitulo}</div>
-              <h3 className="text-3xl font-bold mb-6">{p.nombre}</h3>
-
-              <div className="mb-6">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-gray-400 text-sm">Inicial</span>
-                  <span className="text-3xl font-bold text-gold-gradient">{p.inicial} EUR</span>
-                </div>
-                {p.cuotas && <div className="text-xs text-gray-500 mt-1">{p.cuotas}</div>}
-                <div className="flex items-baseline gap-2 mt-3">
-                  <span className="text-4xl font-bold">{p.mensual} EUR</span>
-                  <span className="text-gray-400">/mes</span>
-                </div>
-              </div>
+              <h3 className="text-3xl font-bold mb-3">{p.nombre}</h3>
+              <p className="text-gray-400 mb-6">{p.ideal}</p>
 
               <motion.a
-                href="https://t.me/macdstudios_bot"
+                href={whatsappConTexto(`Hola Moisés, vengo de la web de MACD Studios. Me interesa el plan ${p.nombre} y quiero un presupuesto.`)}
                 target="_blank"
                 rel="noopener noreferrer"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.93 }}
                 className={`flex items-center justify-center gap-2 w-full py-3 rounded-full font-bold mb-8 ${p.destacado ? "bg-gold-gradient text-black" : "bg-white/10 text-white hover:bg-white/20"}`}
               >
-                <Send className="w-4 h-4" />
-                Empezar ahora
+                <MessageCircle className="w-4 h-4" />
+                Pedir presupuesto
               </motion.a>
 
               <ul className="space-y-3">
-                {p.features.map((f, idx) => (
-                  <li key={idx} className="flex items-start gap-3 text-sm text-gray-300">
+                {p.features.map((f) => (
+                  <li key={f} className="flex items-start gap-3 text-sm text-gray-300">
                     <Check className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
                     {f}
                   </li>
@@ -137,7 +116,7 @@ export default function Planes() {
         </div>
 
         <p className="text-center text-gray-500 text-sm mt-12">
-          Servicios adicionales: gestion de redes desde 200 EUR/mes · campanas 15% sobre inversion · llamadas IA +100 EUR/mes
+          ¿Necesitas otra cosa? También hacemos desarrollos a medida desde cero. Cuéntanos tu idea.
         </p>
       </div>
     </section>
