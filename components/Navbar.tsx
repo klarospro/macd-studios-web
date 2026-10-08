@@ -1,9 +1,10 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Menu, X, Send } from "lucide-react";
+import { Menu, X, MessageCircle } from "lucide-react";
 import Image from "next/image";
+import { PEDIR_PRESUPUESTO_URL } from "@/lib/contacto";
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -30,21 +31,21 @@ export default function Navbar() {
 
           <div className="hidden lg:flex items-center gap-8">
             <a href="#servicios" className="text-gray-300 hover:text-yellow-500 font-medium transition-colors">Servicios</a>
-            <a href="#trabajos" className="text-gray-300 hover:text-yellow-500 font-medium transition-colors">Trabajos</a>
-            <a href="#planes" className="text-gray-300 hover:text-yellow-500 font-medium transition-colors">Planes</a>
+            <a href="#trabajos" className="text-gray-300 hover:text-yellow-500 font-medium transition-colors">Proyectos</a>
+            <a href="#planes" className="text-gray-300 hover:text-yellow-500 font-medium transition-colors">Presupuesto</a>
             <a href="#contacto" className="text-gray-300 hover:text-yellow-500 font-medium transition-colors">Contacto</a>
           </div>
 
           <motion.a
-            href="https://t.me/macdstudios_bot"
+            href={PEDIR_PRESUPUESTO_URL}
             target="_blank"
             rel="noopener noreferrer"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.93 }}
             className="hidden lg:inline-flex items-center gap-2 bg-gold-gradient text-black font-bold px-6 py-3 rounded-full"
           >
-            <Send className="w-4 h-4" />
-            Cotizar ahora
+            <MessageCircle className="w-4 h-4" />
+            Pedir presupuesto
           </motion.a>
 
           <button onClick={() => setMobileOpen(!mobileOpen)} className="lg:hidden text-white p-2">
@@ -60,18 +61,18 @@ export default function Navbar() {
           >
             <div className="flex flex-col gap-4">
               <a href="#servicios" onClick={() => setMobileOpen(false)} className="text-gray-300 hover:text-yellow-500 py-2">Servicios</a>
-              <a href="#trabajos" onClick={() => setMobileOpen(false)} className="text-gray-300 hover:text-yellow-500 py-2">Trabajos</a>
-              <a href="#planes" onClick={() => setMobileOpen(false)} className="text-gray-300 hover:text-yellow-500 py-2">Planes</a>
+              <a href="#trabajos" onClick={() => setMobileOpen(false)} className="text-gray-300 hover:text-yellow-500 py-2">Proyectos</a>
+              <a href="#planes" onClick={() => setMobileOpen(false)} className="text-gray-300 hover:text-yellow-500 py-2">Presupuesto</a>
               <a href="#contacto" onClick={() => setMobileOpen(false)} className="text-gray-300 hover:text-yellow-500 py-2">Contacto</a>
               <motion.a
-                href="https://t.me/macdstudios_bot"
+                href={PEDIR_PRESUPUESTO_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 whileTap={{ scale: 0.93 }}
                 className="inline-flex items-center justify-center gap-2 bg-gold-gradient text-black font-bold px-6 py-3 rounded-full mt-2"
               >
-                <Send className="w-4 h-4" />
-                Cotizar ahora
+                <MessageCircle className="w-4 h-4" />
+                Pedir presupuesto
               </motion.a>
             </div>
           </motion.div>

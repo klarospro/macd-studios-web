@@ -1,23 +1,27 @@
-﻿"use client";
+"use client";
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, MessageCircle, ExternalLink } from "lucide-react";
+import { MessageCircle, ExternalLink } from "lucide-react";
+
+import { TELEGRAM_URL, whatsappConTexto } from "@/lib/contacto";
 
 type Mensaje = { tipo: "bot" | "user"; texto: string; opciones?: string[]; };
-type Paso = "saludo" | "negocio" | "problema" | "plan" | "final";
+type Paso = "saludo" | "problema" | "necesidad" | "final";
+
+// Qué plan encaja con cada necesidad. Sin precios: el presupuesto lo hace Moisés.
+function recomendar(necesidad: string): string {
+  if (necesidad.startsWith("Web")) return "Esencial";
+  if (necesidad.startsWith("Sistema")) return "Sistema completo";
+  return "Profesional";
+}
 
 export default function BotMACD() {
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [paso, setPaso] = useState<Paso>("saludo");
   const [escribiendo, setEscribiendo] = useState(false);
+  const respuestas = useRef<{ negocio?: string; problema?: string; necesidad?: string; plan?: string }>({});
   const chatRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setTimeout(() => {
-      addBotMessage("Hola! Soy el asistente de MACD STUDIOS. En 30 segundos te digo como podemos automatizar tu negocio. Que tipo de negocio tienes?", ["Clinica/Salud", "Restaurante", "Inmobiliaria", "Otro"]);
-    }, 800);
-  }, []);
 
   useEffect(() => { chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" }); }, [mensajes, escribiendo]);
 
@@ -26,30 +30,47 @@ export default function BotMACD() {
     setTimeout(() => { setEscribiendo(false); setMensajes(prev => [...prev, { tipo: "bot", texto, opciones }]); }, 1100);
   };
 
+  useEffect(() => {
+    setTimeout(() => {
+      addBotMessage("¡Hola! Soy el asistente de MACD Studios. En 30 segundos te digo cómo podemos ayudarte. ¿Qué tipo de negocio tienes?", ["Restaurante / bar", "Clínica / salud", "Inmobiliaria", "Otro"]);
+    }, 800);
+  }, []);
+
   const addUserMessage = (texto: string) => { setMensajes(prev => [...prev, { tipo: "user", texto }]); };
 
   const handleOpcion = (opcion: string) => {
     addUserMessage(opcion);
     switch (paso) {
       case "saludo":
+        respuestas.current.negocio = opcion;
         setPaso("problema");
-        addBotMessage("Genial! Cual es tu mayor dolor ahora mismo?", ["Pierdo clientes fuera de horario", "Gestiono todo a mano", "No tengo presencia online", "Quiero vender mas"]);
+        addBotMessage("¡Genial! ¿Qué es lo que más te frena ahora mismo?", ["Pierdo clientes fuera de horario", "Gestiono todo a mano", "No tengo presencia online", "Quiero vender más"]);
         break;
       case "problema":
-        setPaso("plan");
-        addBotMessage("Te entiendo perfectamente. Eso lo resolvemos con automatizacion IA. Que presupuesto manejas para empezar?", ["Lo minimo posible", "Algo equilibrado", "Quiero lo mejor"]);
+        respuestas.current.problema = opcion;
+        setPaso("necesidad");
+        addBotMessage("Te entiendo. Eso tiene solución. ¿Qué te gustaría tener primero?", ["Web y presencia online", "CRM y automatizaciones", "Bot que atienda 24/7", "Sistema completo para el negocio"]);
         break;
-      case "plan":
+      case "necesidad": {
+        respuestas.current.necesidad = opcion;
+        const plan = recomendar(opcion);
+        respuestas.current.plan = plan;
         setPaso("final");
-        let recomendacion = "";
-        if (opcion.includes("minimo")) recomendacion = "Plan ESENCIAL (0 EUR inicial + 290/mes)";
-        else if (opcion.includes("equilibrado")) recomendacion = "Plan PROFESIONAL (700 EUR + 390/mes) - el mas popular";
-        else recomendacion = "Plan PREMIUM (1.500 EUR + 590/mes) - dominacion total";
-        addBotMessage(`Perfecto. Para tu caso te recomiendo el ${recomendacion}.\n\nMoises, nuestro fundador, te puede dar todos los detalles y un presupuesto personalizado AHORA mismo por Telegram. Le escribes?`, ["Si, hablar con Moises"]);
+        addBotMessage(`Para tu caso encaja el plan ${plan}.
+
+Moisés, nuestro fundador, te prepara un presupuesto a medida y sin compromiso. ¿Le escribes?`, ["Sí, por WhatsApp", "Prefiero Telegram"]);
         break;
-      case "final":
-        window.open("https://t.me/macdstudios_bot", "_blank");
+      }
+      case "final": {
+        if (opcion.includes("Telegram")) {
+          window.open(TELEGRAM_URL, "_blank", "noopener,noreferrer");
+          break;
+        }
+        const r = respuestas.current;
+        const texto = `Hola Moisés, vengo de la web de MACD Studios. Tengo un negocio de tipo ${r.negocio}, mi problema es "${r.problema}" y me interesa: ${r.necesidad} (plan ${r.plan}). ¿Me preparas un presupuesto?`;
+        window.open(whatsappConTexto(texto), "_blank", "noopener,noreferrer");
         break;
+      }
     }
   };
 
@@ -66,7 +87,7 @@ export default function BotMACD() {
         >
           <div className="text-yellow-500 text-sm tracking-[0.3em] uppercase mb-4">Hablemos</div>
           <h2 className="text-4xl lg:text-6xl font-bold mb-6">
-            Descubre tu plan<br /><span className="text-gold-gradient italic">en 30 segundos.</span>
+            Descubre tu solución<br /><span className="text-gold-gradient italic">en 30 segundos.</span>
           </h2>
         </motion.div>
 
@@ -80,7 +101,7 @@ export default function BotMACD() {
                 <div className="font-bold text-lg text-black">Asistente MACD</div>
                 <div className="text-sm text-black/70 flex items-center gap-2">
                   <span className="w-2 h-2 bg-green-600 rounded-full"></span>
-                  En linea
+                  En línea
                 </div>
               </div>
             </div>
