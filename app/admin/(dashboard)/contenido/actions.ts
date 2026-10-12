@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { requireSession } from '@/lib/admin/dal'
 import { callAnthropic } from '@/lib/admin/anthropic'
-import { MACD_BUSINESS_CONTEXT } from '@/lib/admin/business-context'
+import { getBusinessContext } from '@/lib/admin/business-context'
 import { MACD_GROWTH_CONTEXT } from '@/lib/admin/growth-context'
 import { supabase as serviceDb } from '@/lib/supabase'
 import { publishItem } from '@/lib/social/publish'
@@ -67,7 +67,7 @@ export async function generateWeekPlan(_prev: AgentState, fd: FormData): Promise
       [
         {
           role: 'system',
-          content: `${MACD_BUSINESS_CONTEXT}
+          content: `${await getBusinessContext()}
 
 ${MACD_GROWTH_CONTEXT}
 

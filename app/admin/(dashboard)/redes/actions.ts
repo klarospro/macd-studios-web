@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { requireSession } from '@/lib/admin/dal'
 import { callAnthropic, callAnthropicWithWebSearch } from '@/lib/admin/anthropic'
-import { MACD_BUSINESS_CONTEXT } from '@/lib/admin/business-context'
+import { getBusinessContext } from '@/lib/admin/business-context'
 import { MACD_GROWTH_CONTEXT } from '@/lib/admin/growth-context'
 import { discoveryConfigured, scanReference, summarizeScan } from '@/lib/social/references'
 import { syncAll } from '@/lib/social/sync'
@@ -71,7 +71,7 @@ export async function analyzeProfile(_prev: AgentState, _fd: FormData): Promise<
       [
         {
           role: 'system',
-          content: `${MACD_BUSINESS_CONTEXT}
+          content: `${await getBusinessContext()}
 
 ${MACD_GROWTH_CONTEXT}
 
@@ -200,7 +200,7 @@ export async function runBenchmark(_prev: AgentState, fd: FormData): Promise<Age
       [
         {
           role: 'system',
-          content: `${MACD_BUSINESS_CONTEXT}
+          content: `${await getBusinessContext()}
 
 ${MACD_GROWTH_CONTEXT}
 
