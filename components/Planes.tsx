@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Check, MessageCircle } from "lucide-react";
 import { whatsappConTexto } from "@/lib/contacto";
+import { PLAZO_ENTREGA_POR_DEFECTO } from "@/lib/admin/settings";
 
 const planes = [
   {
@@ -68,6 +69,12 @@ export default function Planes() {
           </h2>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto">
             Cada negocio es distinto. Nos cuentas qué necesitas y te preparamos un presupuesto a medida, sin compromiso.
+          </p>
+          <p className="mt-6 inline-flex items-center gap-2 rounded-full border border-yellow-500/30 bg-yellow-500/5 px-5 py-2 text-sm text-yellow-500">
+            Funcionando en {PLAZO_ENTREGA_POR_DEFECTO.diasMaximo} días o el primer mes es gratis
+          </p>
+          <p className="mt-3 text-sm text-gray-500">
+            El plazo empieza a contar cuando nos pasas tus textos, tu logo y los accesos.
           </p>
         </motion.div>
 

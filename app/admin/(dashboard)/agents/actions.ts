@@ -2,7 +2,7 @@
 
 import { requireSession } from '@/lib/admin/dal'
 import { callAnthropic } from '@/lib/admin/anthropic'
-import { MACD_BUSINESS_CONTEXT } from '@/lib/admin/business-context'
+import { getBusinessContext } from '@/lib/admin/business-context'
 import { TRACKED_PROJECTS, getGithubStatus } from '@/lib/admin/project-status'
 
 export type AgentState = { output?: string; error?: string } | undefined
@@ -20,7 +20,7 @@ export async function runMarketingAgent(_prev: AgentState, formData: FormData): 
     const output = await callAnthropic([
       {
         role: 'system',
-        content: `${MACD_BUSINESS_CONTEXT}\n\nEres el agente de marketing de MACD Studios. Genera 3 ideas de contenido para redes (Instagram/TikTok/Facebook), concretas y listas para grabar/publicar esta semana. Cada idea: gancho (primeras 2 líneas), formato (reel/carrusel/story), y CTA. Nada de teoría genérica.`,
+        content: `${await getBusinessContext()}\n\nEres el agente de marketing de MACD Studios. Genera 3 ideas de contenido para redes (Instagram/TikTok/Facebook), concretas y listas para grabar/publicar esta semana. Cada idea: gancho (primeras 2 líneas), formato (reel/carrusel/story), y CTA. Nada de teoría genérica.`,
       },
       {
         role: 'user',
@@ -43,7 +43,7 @@ export async function runNewProjectAgent(_prev: AgentState, formData: FormData):
     const output = await callAnthropic([
       {
         role: 'system',
-        content: `${MACD_BUSINESS_CONTEXT}\n\nEres el agente de nuevos proyectos de MACD Studios. Dado lo que pide un cliente potencial, devuelve en texto plano (sin markdown): 1) qué plan/producto encaja mejor y por qué, 2) un borrador de 2-3 frases para el campo "Servicio" de una propuesta, 3) una nota corta de alcance/riesgo a confirmar antes de cotizar en firme.`,
+        content: `${await getBusinessContext()}\n\nEres el agente de nuevos proyectos de MACD Studios. Dado lo que pide un cliente potencial, devuelve en texto plano (sin markdown): 1) qué plan/producto encaja mejor y por qué, 2) un borrador de 2-3 frases para el campo "Servicio" de una propuesta, 3) una nota corta de alcance/riesgo a confirmar antes de cotizar en firme.`,
       },
       { role: 'user', content: description },
     ])
@@ -94,7 +94,7 @@ export async function runProductionAgent(_prev: AgentState, formData: FormData):
     const output = await callAnthropic([
       {
         role: 'system',
-        content: `${MACD_BUSINESS_CONTEXT}\n\nEres el agente de producción de MACD Studios. Dado un cliente y el plan que compró, devuelve un checklist numerado (texto plano) de los pasos concretos para entregarlo, en orden, basado EXACTAMENTE en lo que incluye ese plan — sin agregar nada que el plan no tenga.`,
+        content: `${await getBusinessContext()}\n\nEres el agente de producción de MACD Studios. Dado un cliente y el plan que compró, devuelve un checklist numerado (texto plano) de los pasos concretos para entregarlo, en orden, basado EXACTAMENTE en lo que incluye ese plan — sin agregar nada que el plan no tenga.`,
       },
       { role: 'user', content: `Cliente: ${clientName}\nPlan comprado: ${plan}` },
     ])
